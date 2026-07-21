@@ -210,6 +210,33 @@ def index():
                     transform: translateY(0);
                 }
 
+                .mode-group {
+                    display: flex;
+                    gap: 12px;
+                    margin-bottom: 24px;
+                }
+                .mode-opt {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    padding: 12px;
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid var(--glass-border);
+                    border-radius: 12px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    color: var(--text-muted);
+                    transition: all 0.25s ease;
+                }
+                .mode-opt:has(input:checked) {
+                    border-color: rgba(59, 130, 246, 0.6);
+                    box-shadow: 0 0 15px var(--primary-glow);
+                    color: var(--text-main);
+                }
+                .mode-opt input { accent-color: var(--primary); }
+
                 .footer {
                     margin-top: 35px;
                     font-size: 11px;
@@ -253,6 +280,16 @@ def index():
                 <form id="extractForm" action="/extract" method="GET">
                     <div class="input-group">
                         <input type="text" id="urlInput" name="url" placeholder="https://alightcreative.com/am/share/u/..." autocomplete="off" required />
+                    </div>
+                    <div class="mode-group">
+                        <label class="mode-opt">
+                            <input type="radio" name="mode" value="full" checked />
+                            <span>Full Package (.zip + media)</span>
+                        </label>
+                        <label class="mode-opt">
+                            <input type="radio" name="mode" value="xml" />
+                            <span>XML only</span>
+                        </label>
                     </div>
                     <button type="submit" id="submitBtn">
                         <span class="btn-text">Extract Payload</span>
@@ -314,18 +351,30 @@ def extract():
                 
     if not zip_bytes:
         return "Failed to download project package from Firebase Storage. The link might be expired or invalid.", 404
-        
-    try:
-        xml_name, xml_bytes = extract_xml_from_zip(zip_bytes)
-        return Response(
-            xml_bytes,
-            mimetype="application/xml",
-            headers={
-                "Content-Disposition": f'attachment; filename="{package_id}.xml"'
-            }
-        )
-    except Exception as e:
-        return f"Error parsing ZIP or extracting XML: {e}", 500
+
+    mode = request.args.get("mode", "full").strip().lower()
+
+    if mode == "xml":
+        try:
+            xml_name, xml_bytes = extract_xml_from_zip(zip_bytes)
+            return Response(
+                xml_bytes,
+                mimetype="application/xml",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{package_id}.xml"'
+                }
+            )
+        except Exception as e:
+            return f"Error parsing ZIP or extracting XML: {e}", 500
+
+    # mode == "full": trả nguyên projectfiles.zip (XML + media gốc)
+    return Response(
+        zip_bytes,
+        mimetype="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{package_id}.zip"'
+        }
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
