@@ -29,3 +29,6 @@ ENV/
 *.xml
 *.zip
 !projectfiles.zip
+
+.vercel
+.env*
