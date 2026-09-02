@@ -27,6 +27,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initExportActions();
 });
 
+let uploadedAudioFile = null;
+
 // Audio File Loading & Dropzone
 function initAudioDropzone() {
     const dropzone = document.getElementById("audioDropzone");
@@ -60,6 +62,7 @@ function initAudioDropzone() {
     });
 
     async function handleAudioFile(file) {
+        uploadedAudioFile = file;
         statusBadge.textContent = "⌛ Decoding & Detecting Beats...";
         statusBadge.style.display = "inline-flex";
 
@@ -97,6 +100,7 @@ function initLyricsEditor() {
     const textarea = document.getElementById("lyricsInput");
     const sampleBtn = document.getElementById("loadSampleBtn");
     const sampleSyncBtn = document.getElementById("sampleSyncBtn");
+    const whisperBtn = document.getElementById("whisperAlignBtn");
     const alignBtn = document.getElementById("autoAlignBtn");
     const resetBtn = document.getElementById("resetSyncBtn");
 
@@ -123,6 +127,58 @@ function initLyricsEditor() {
             syncLyricIndex = currentLyrics.length;
             renderLyricList();
             drawWaveform();
+        });
+    }
+
+    if (whisperBtn) {
+        whisperBtn.addEventListener("click", async () => {
+            if (!uploadedAudioFile) {
+                alert("Vui lòng kéo thả file âm thanh (MP3, WAV, M4A, MP4) vào ô 1 trước!");
+                return;
+            }
+
+            const rawText = document.getElementById("lyricsInput").value.trim();
+            const originalText = whisperBtn.innerHTML;
+            whisperBtn.disabled = true;
+            whisperBtn.innerHTML = "⌛ Đang dùng AI Whisper lắng nghe giọng hát & bắt nhịp...";
+
+            const formData = new FormData();
+            formData.append("audio", uploadedAudioFile);
+            formData.append("lyrics_text", rawText);
+
+            try {
+                const res = await fetch("/api/whisper-align", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const errJson = await res.json().catch(() => ({}));
+                    throw new Error(errJson.error || "Không thể phân tích bằng Whisper");
+                }
+
+                const data = await res.json();
+                if (data.success && data.lyrics && data.lyrics.length > 0) {
+                    currentLyrics = data.lyrics;
+                    syncLyricIndex = currentLyrics.length;
+                    if (data.bookmarks && data.bookmarks.length > 0) {
+                        audioEngine.detectedBeats = data.bookmarks;
+                    }
+                    if (!rawText) {
+                        document.getElementById("lyricsInput").value = data.lyrics.map(l => l.text).join("\n");
+                    }
+                    renderLyricList();
+                    drawWaveform();
+                    alert(`✓ AI Whisper đã nhận diện và căn chuẩn xác ${data.count} câu hát!`);
+                } else {
+                    throw new Error("Không tìm thấy đoạn lời nào trong âm thanh.");
+                }
+            } catch (err) {
+                alert("Lỗi AI Whisper: " + err.message);
+            } finally {
+                whisperBtn.disabled = false;
+                whisperBtn.innerHTML = originalText;
+            }
         });
     }
 
