@@ -132,24 +132,132 @@ function autoAlignLyrics() {
     const numLines = currentLyrics.length;
 
     if (beats.length >= numLines) {
-        const beatsPerLine = Math.floor(beats.length / numLines);
+        const step = Math.floor(beats.length / numLines);
         for (let i = 0; i < numLines; i++) {
-            const s = beats[i * beatsPerLine];
-            const nextIdx = Math.min(beats.length - 1, (i + 1) * beatsPerLine);
-            const e = (nextIdx > i * beatsPerLine) ? beats[nextIdx] : s + 2500;
-            currentLyrics[i].start_ms = Math.max(0, s - 100);
-            currentLyrics[i].end_ms = Math.max(currentLyrics[i].start_ms + 1200, e);
+            const s = beats[i * step];
+            const nextStart = (i < numLines - 1) ? beats[(i + 1) * step] : (s + 3500);
+            currentLyrics[i].start_ms = Math.max(0, s);
+            currentLyrics[i].end_ms = Math.max(s + 2000, Math.min(nextStart, s + 4000));
         }
     } else {
         const leadIn = 1000;
-        const perLine = (totalMs - leadIn - 2000) / numLines;
+        const perLine = Math.max(2500, (totalMs - leadIn - 1500) / numLines);
         for (let i = 0; i < numLines; i++) {
-            currentLyrics[i].start_ms = Math.round(leadIn + i * perLine);
-            currentLyrics[i].end_ms = Math.round(leadIn + i * perLine + perLine * 0.9);
+            const s = Math.round(leadIn + i * perLine);
+            currentLyrics[i].start_ms = s;
+            currentLyrics[i].end_ms = Math.round(s + perLine * 0.92);
         }
     }
 
     renderLyricList();
+}
+
+function evalCubicBezier(x1, y1, x2, y2, t) {
+    const cx = 3 * x1;
+    const bx = 3 * (x2 - x1) - cx;
+    const ax = 1 - cx - bx;
+
+    const cy = 3 * y1;
+    const by = 3 * (y2 - y1) - cy;
+    const ay = 1 - cy - by;
+
+    function sampleX(t) { return ((ax * t + bx) * t + cx) * t; }
+    function sampleY(t) { return ((ay * t + by) * t + cy) * t; }
+
+    let t0 = 0, t1 = 1, t2 = t;
+    for (let i = 0; i < 8; i++) {
+        const x2_val = sampleX(t2);
+        if (Math.abs(x2_val - t) < 0.001) break;
+        if (t > x2_val) t0 = t2;
+        else t1 = t2;
+        t2 = (t1 + t0) / 2;
+    }
+    return Math.max(0, Math.min(1, sampleY(t2)));
+}
+
+function updateActiveLyric(curMs) {
+    let foundIdx = -1;
+    for (let i = 0; i < currentLyrics.length; i++) {
+        if (curMs >= currentLyrics[i].start_ms && curMs <= currentLyrics[i].end_ms) {
+            foundIdx = i;
+            break;
+        }
+    }
+
+    const liveTextEl = document.getElementById("canvasLiveText");
+    const fontSelect = document.getElementById("fontSelect");
+    const presetSelect = document.getElementById("presetSelect");
+
+    // Apply selected font family to live stage
+    if (fontSelect && liveTextEl) {
+        const fontName = fontSelect.options[fontSelect.selectedIndex]?.text?.split('(')[0]?.trim() || "Patrick Hand";
+        liveTextEl.style.fontFamily = `"${fontName}", var(--font-main)`;
+    }
+
+    if (foundIdx !== -1) {
+        const item = currentLyrics[foundIdx];
+        const duration = Math.max(1, item.end_ms - item.start_ms);
+        const rawProgress = Math.max(0, Math.min(1, (curMs - item.start_ms) / duration));
+
+        const preset = presetSelect ? presetSelect.value : "typewriter";
+
+        if (preset === "typewriter") {
+            // Eased typewriter progressive character reveal
+            const easedProgress = evalCubicBezier(0.0, 0.0, 0.56, 1.0, rawProgress);
+            const totalChars = item.text.length;
+            const revealCount = Math.min(totalChars, Math.max(0, Math.floor(easedProgress * totalChars)));
+
+            const revealed = item.text.slice(0, revealCount);
+            const pending = item.text.slice(revealCount);
+
+            liveTextEl.innerHTML = `
+                <span class="revealed-text">${escapeHtml(revealed)}</span>
+                <span class="typewriter-cursor"></span>
+                <span class="pending-text">${escapeHtml(pending)}</span>
+            `;
+            liveTextEl.style.transform = "scale(1.02)";
+            liveTextEl.style.opacity = "1";
+        } else if (preset === "kinetic_pop") {
+            // Scale bounce on onset
+            const scale = rawProgress < 0.3 ? 1.0 + (1.0 - rawProgress / 0.3) * 0.25 : 1.0;
+            liveTextEl.innerHTML = `<span class="revealed-text">${escapeHtml(item.text)}</span>`;
+            liveTextEl.style.transform = `scale(${scale.toFixed(3)})`;
+            liveTextEl.style.opacity = "1";
+        } else if (preset === "neon_glow") {
+            // Cyber glow pulsating
+            const glow = 15 + Math.sin(rawProgress * Math.PI * 4) * 10;
+            liveTextEl.innerHTML = `<span class="revealed-text" style="text-shadow: 0 0 ${glow}px #38bdf8, 0 0 ${glow*2}px #818cf8;">${escapeHtml(item.text)}</span>`;
+            liveTextEl.style.transform = "translateY(-4px)";
+            liveTextEl.style.opacity = "1";
+        } else {
+            // Minimal fade
+            const opacity = Math.min(1, rawProgress * 3);
+            liveTextEl.innerHTML = `<span class="revealed-text">${escapeHtml(item.text)}</span>`;
+            liveTextEl.style.opacity = `${opacity}`;
+            liveTextEl.style.transform = "scale(1)";
+        }
+
+        if (foundIdx !== activeLyricIndex) {
+            activeLyricIndex = foundIdx;
+            document.querySelectorAll(".lyric-item-row").forEach((row, i) => {
+                if (i === activeLyricIndex) {
+                    row.classList.add("active");
+                    row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                } else {
+                    row.classList.remove("active");
+                }
+            });
+        }
+    } else {
+        if (activeLyricIndex !== -1) {
+            activeLyricIndex = -1;
+            document.querySelectorAll(".lyric-item-row").forEach(row => row.classList.remove("active"));
+        }
+        if (liveTextEl) {
+            liveTextEl.innerHTML = `<span style="opacity: 0.35;">[ Lyrics Live Preview Stage ]</span>`;
+            liveTextEl.style.transform = "scale(1)";
+        }
+    }
 }
 
 function renderLyricList() {
@@ -259,45 +367,6 @@ function initPlaybackControls() {
     audioEngine.onPlaybackEnded = () => {
         if (playBtn) playBtn.innerHTML = "▶ Play";
     };
-}
-
-function updateActiveLyric(curMs) {
-    let foundIdx = -1;
-    for (let i = 0; i < currentLyrics.length; i++) {
-        if (curMs >= currentLyrics[i].start_ms && curMs <= currentLyrics[i].end_ms) {
-            foundIdx = i;
-            break;
-        }
-    }
-
-    if (foundIdx !== activeLyricIndex) {
-        activeLyricIndex = foundIdx;
-        const liveText = document.getElementById("canvasLiveText");
-        
-        if (activeLyricIndex !== -1) {
-            const activeItem = currentLyrics[activeLyricIndex];
-            if (liveText) {
-                liveText.textContent = activeItem.text;
-                liveText.style.opacity = "1";
-                liveText.style.transform = "scale(1.05)";
-            }
-        } else if (liveText) {
-            liveText.style.opacity = "0.3";
-            liveText.style.transform = "scale(1)";
-        }
-
-        // Update active class in list
-        document.querySelectorAll(".lyric-item-row").forEach((row, i) => {
-            if (i === activeLyricIndex) {
-                row.classList.add("active");
-                row.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            } else {
-                row.classList.remove("active");
-            }
-        });
-    }
-}
-
 // Waveform Canvas Rendering
 function initWaveformInteractions() {
     const wrapper = document.getElementById("waveformWrapper");

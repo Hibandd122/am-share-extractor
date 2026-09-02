@@ -16,9 +16,9 @@ class AMAudioEngine {
         this.detectedBpm = 120;
         this.tappedBeats = [];
 
-        // Latency compensation / Pre-roll (Negative offset in ms to eliminate editing delay)
-        this.latencyOffsetMs = -180;
-        this.sensitivity = 1.25; // 1.10 (High/Sensitive) to 1.60 (Strict)
+        // Default natural timing offset
+        this.latencyOffsetMs = 0;
+        this.sensitivity = 1.35; // Balanced natural sensitivity
 
         this.onPlaybackUpdate = null;
         this.onPlaybackEnded = null;
@@ -98,10 +98,10 @@ class AMAudioEngine {
             spectralFlux[i] = diff > 0 ? diff : 0; // Half-wave rectification
         }
 
-        // 3. Dynamic adaptive threshold with short window (15 frames = ~170ms)
-        const localWindow = 15;
+        // 3. Dynamic adaptive threshold with balanced window
+        const localWindow = 20;
         const detected = [];
-        const minBeatDistanceMs = 240; // Max ~250 BPM
+        const minBeatDistanceMs = 360; // Natural phrase & beat cadence (~160 BPM max)
         let lastBeatTimeMs = -minBeatDistanceMs;
 
         for (let i = localWindow; i < totalFrames - localWindow; i++) {
