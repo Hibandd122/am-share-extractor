@@ -367,6 +367,8 @@ function initPlaybackControls() {
     audioEngine.onPlaybackEnded = () => {
         if (playBtn) playBtn.innerHTML = "▶ Play";
     };
+}
+
 // Waveform Canvas Rendering
 function initWaveformInteractions() {
     const wrapper = document.getElementById("waveformWrapper");
