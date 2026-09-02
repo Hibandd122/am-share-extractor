@@ -149,6 +149,87 @@ class AMAudioEngine {
     }
 
     /**
+     * Intelligent Voice Activity Detection (VAD) & Phrase Segmenter
+     * Segments sung vocal sentences based on energy envelope and silence pauses.
+     */
+    detectVocalPhrases(targetCount = 0) {
+        if (!this.audioBuffer) return [];
+
+        const rawData = this.audioBuffer.getChannelData(0);
+        const sampleRate = this.audioBuffer.sampleRate;
+        const windowSize = Math.floor(sampleRate * 0.05); // 50ms window
+        const totalWindows = Math.floor(rawData.length / windowSize);
+        const rms = new Float32Array(totalWindows);
+
+        let maxRms = 0;
+        for (let i = 0; i < totalWindows; i++) {
+            let sum = 0;
+            const start = i * windowSize;
+            for (let j = 0; j < windowSize; j++) {
+                const s = rawData[start + j];
+                sum += s * s;
+            }
+            rms[i] = Math.sqrt(sum / windowSize);
+            if (rms[i] > maxRms) maxRms = rms[i];
+        }
+
+        if (maxRms === 0) return [];
+
+        // Moving average smoothing (~300ms window)
+        const smooth = new Float32Array(totalWindows);
+        const half = 3;
+        for (let i = 0; i < totalWindows; i++) {
+            let sum = 0, count = 0;
+            for (let k = -half; k <= half; k++) {
+                const idx = i + k;
+                if (idx >= 0 && idx < totalWindows) {
+                    sum += rms[idx];
+                    count++;
+                }
+            }
+            smooth[i] = sum / count;
+        }
+
+        const threshold = maxRms * 0.14; // 14% of peak energy
+        const segments = [];
+        let inSeg = false;
+        let startMs = 0;
+        let silenceCountMs = 0;
+
+        for (let i = 0; i < totalWindows; i++) {
+            const timeMs = Math.round(i * 50);
+            if (smooth[i] >= threshold) {
+                if (!inSeg) {
+                    inSeg = true;
+                    startMs = Math.max(0, timeMs - 50);
+                }
+                silenceCountMs = 0;
+            } else {
+                if (inSeg) {
+                    silenceCountMs += 50;
+                    if (silenceCountMs >= 450) { // 450ms silence marks phrase end
+                        const endMs = timeMs - silenceCountMs;
+                        if (endMs - startMs >= 1100) {
+                            segments.push({ start_ms: startMs, end_ms: endMs });
+                        }
+                        inSeg = false;
+                        silenceCountMs = 0;
+                    }
+                }
+            }
+        }
+
+        if (inSeg) {
+            const endMs = Math.round(totalWindows * 50);
+            if (endMs - startMs >= 1100) {
+                segments.push({ start_ms: startMs, end_ms: endMs });
+            }
+        }
+
+        return segments;
+    }
+
+    /**
      * Playback Controls
      */
     play(offsetSeconds = null) {

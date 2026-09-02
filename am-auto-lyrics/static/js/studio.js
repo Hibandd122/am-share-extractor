@@ -77,16 +77,64 @@ function initAudioDropzone() {
     }
 }
 
+const SAMPLE_TIMESTAMPS_MS = [
+    { start_ms: 367, end_ms: 2166 },
+    { start_ms: 2084, end_ms: 4166 },
+    { start_ms: 4067, end_ms: 6099 },
+    { start_ms: 6000, end_ms: 7966 },
+    { start_ms: 7884, end_ms: 9366 },
+    { start_ms: 9267, end_ms: 11716 },
+    { start_ms: 11617, end_ms: 13049 },
+    { start_ms: 12950, end_ms: 15433 },
+    { start_ms: 15317, end_ms: 17549 },
+    { start_ms: 17434, end_ms: 19133 },
+    { start_ms: 19050, end_ms: 20599 },
+    { start_ms: 20500, end_ms: 22999 },
+];
+
 // Lyrics Editor
 function initLyricsEditor() {
     const textarea = document.getElementById("lyricsInput");
     const sampleBtn = document.getElementById("loadSampleBtn");
+    const sampleSyncBtn = document.getElementById("sampleSyncBtn");
     const alignBtn = document.getElementById("autoAlignBtn");
+    const resetBtn = document.getElementById("resetSyncBtn");
 
     if (sampleBtn) {
         sampleBtn.addEventListener("click", () => {
             textarea.value = SAMPLE_VIET_LYRICS;
             parseAndRenderLyrics();
+        });
+    }
+
+    if (sampleSyncBtn) {
+        sampleSyncBtn.addEventListener("click", () => {
+            textarea.value = SAMPLE_VIET_LYRICS;
+            const lines = SAMPLE_VIET_LYRICS.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+            currentLyrics = lines.map((text, idx) => {
+                const ts = SAMPLE_TIMESTAMPS_MS[idx] || { start_ms: idx * 2000, end_ms: idx * 2000 + 2000 };
+                return {
+                    id: idx + 1,
+                    text: text,
+                    start_ms: ts.start_ms,
+                    end_ms: ts.end_ms
+                };
+            });
+            syncLyricIndex = currentLyrics.length;
+            renderLyricList();
+            drawWaveform();
+        });
+    }
+
+    if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
+            syncLyricIndex = 0;
+            currentLyrics.forEach(item => {
+                item.start_ms = 0;
+                item.end_ms = 0;
+            });
+            renderLyricList();
+            drawWaveform();
         });
     }
 
@@ -106,6 +154,7 @@ function parseAndRenderLyrics() {
     if (!raw) {
         currentLyrics = [];
         renderLyricList();
+        drawWaveform();
         return;
     }
 
@@ -121,35 +170,41 @@ function parseAndRenderLyrics() {
         autoAlignLyrics();
     } else {
         renderLyricList();
+        drawWaveform();
     }
 }
 
 function autoAlignLyrics() {
     if (currentLyrics.length === 0) return;
 
-    const beats = audioEngine.tappedBeats.length > 0 ? audioEngine.tappedBeats : audioEngine.detectedBeats;
     const totalMs = Math.round((audioEngine.duration || 30) * 1000);
     const numLines = currentLyrics.length;
 
-    if (beats.length >= numLines) {
-        const step = Math.floor(beats.length / numLines);
+    // 1. Try Voice Activity Detection (VAD) phrase segmentation first
+    let vocalSegments = [];
+    if (audioEngine.audioBuffer) {
+        vocalSegments = audioEngine.detectVocalPhrases(numLines);
+    }
+
+    if (vocalSegments.length >= numLines) {
+        // Map detected vocal energy blocks to lyrics
         for (let i = 0; i < numLines; i++) {
-            const s = beats[i * step];
-            const nextStart = (i < numLines - 1) ? beats[(i + 1) * step] : (s + 3500);
-            currentLyrics[i].start_ms = Math.max(0, s);
-            currentLyrics[i].end_ms = Math.max(s + 2000, Math.min(nextStart, s + 4000));
+            currentLyrics[i].start_ms = vocalSegments[i].start_ms;
+            currentLyrics[i].end_ms = Math.max(vocalSegments[i].start_ms + 1200, vocalSegments[i].end_ms);
         }
     } else {
-        const leadIn = 1000;
-        const perLine = Math.max(2500, (totalMs - leadIn - 1500) / numLines);
+        // 2. Uniform natural song pacing distribution
+        const leadIn = 800;
+        const perLine = Math.max(2200, (totalMs - leadIn - 1500) / numLines);
         for (let i = 0; i < numLines; i++) {
             const s = Math.round(leadIn + i * perLine);
             currentLyrics[i].start_ms = s;
-            currentLyrics[i].end_ms = Math.round(s + perLine * 0.92);
+            currentLyrics[i].end_ms = Math.round(s + perLine * 0.90);
         }
     }
 
     renderLyricList();
+    drawWaveform();
 }
 
 function evalCubicBezier(x1, y1, x2, y2, t) {
@@ -463,12 +518,34 @@ function drawWaveform() {
 
     allBeats.forEach(bMs => {
         const x = (bMs / durationMs) * width;
-        ctx.strokeStyle = "rgba(244, 63, 94, 0.7)";
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "rgba(244, 63, 94, 0.4)";
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
         ctx.stroke();
+    });
+
+    // Draw lyric sentence blocks on waveform
+    currentLyrics.forEach((item, idx) => {
+        if (item.end_ms > item.start_ms && item.end_ms > 0) {
+            const x1 = (item.start_ms / durationMs) * width;
+            const x2 = (item.end_ms / durationMs) * width;
+            const blockWidth = Math.max(6, x2 - x1);
+            
+            const isCur = idx === activeLyricIndex;
+            ctx.fillStyle = isCur ? "rgba(56, 189, 248, 0.4)" : "rgba(129, 140, 248, 0.2)";
+            ctx.fillRect(x1, 0, blockWidth, height);
+            
+            ctx.strokeStyle = isCur ? "#38bdf8" : "rgba(129, 140, 248, 0.6)";
+            ctx.lineWidth = isCur ? 2 : 1;
+            ctx.strokeRect(x1, 0, blockWidth, height);
+
+            // Draw line number tag
+            ctx.fillStyle = isCur ? "#38bdf8" : "#ffffff";
+            ctx.font = "bold 10px monospace";
+            ctx.fillText(`#${idx + 1}`, x1 + 3, 14);
+        }
     });
 }
 

@@ -115,12 +115,21 @@
             <div class="glass-card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                     <h3 class="card-title" style="margin-bottom: 0;"><span>📝</span> 3. Lyrics Text</h3>
-                    <button type="button" id="loadSampleBtn" class="btn-ctrl" style="font-size: 11px; padding: 4px 8px;">Sample</button>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" id="loadSampleBtn" class="btn-ctrl" style="font-size: 11px; padding: 4px 8px;">Lời Mẫu</button>
+                        <button type="button" id="sampleSyncBtn" class="btn-ctrl" style="font-size: 11px; padding: 4px 8px; color: var(--primary);" title="Gán mốc chuẩn 100% của bài Trước Khi Em Đến">🎯 Sync Mẫu</button>
+                    </div>
                 </div>
-                <textarea id="lyricsInput" class="form-textarea" rows="8" placeholder="Paste lyrics lines here (or LRC / SRT format)..."></textarea>
-                <button type="button" id="autoAlignBtn" class="btn-ctrl" style="width: 100%; margin-top: 10px; justify-content: center;">
-                    ⚡ Auto-Align Lyrics to Beats
-                </button>
+                <textarea id="lyricsInput" class="form-textarea" rows="8" placeholder="Dán lời bài hát vào đây (hoặc file LRC / SRT)..."></textarea>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
+                    <button type="button" id="autoAlignBtn" class="btn-ctrl" style="justify-content: center; font-size: 11px; padding: 8px 4px;">
+                        🤖 Căn Theo Giọng Hát
+                    </button>
+                    <button type="button" id="resetSyncBtn" class="btn-ctrl" style="justify-content: center; font-size: 11px; padding: 8px 4px; color: #f43f5e;">
+                        🔄 Reset Mốc
+                    </button>
+                </div>
             </div>
         </aside>
 
