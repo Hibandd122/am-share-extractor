@@ -65,7 +65,7 @@ function initAudioDropzone() {
 
         try {
             const stats = await audioEngine.loadAudio(file);
-            statusBadge.textContent = `✓ ${stats.bpm} BPM · ${stats.beatsCount} Beats Detected (${(stats.duration).toFixed(1)}s)`;
+            statusBadge.textContent = `✓ ${stats.bpm} BPM (${stats.confidence}% độ tin cậy) · ${stats.beatsCount} Beats (${(stats.duration).toFixed(1)}s)`;
             
             // Auto align lyrics if present
             autoAlignLyrics();

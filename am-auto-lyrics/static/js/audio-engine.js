@@ -14,10 +14,12 @@ class AMAudioEngine {
 
         this.detectedBeats = []; // Array of timestamps in ms
         this.detectedBpm = 120;
+        this.beatConfidence = 0;
+        this.detectedOnsets = [];
         this.tappedBeats = [];
 
         // Default natural timing offset
-        this.latencyOffsetMs = 0;
+        this.latencyOffsetMs = -180;
         this.sensitivity = 1.35; // Balanced natural sensitivity
 
         this.onPlaybackUpdate = null;
@@ -58,13 +60,17 @@ class AMAudioEngine {
             duration: this.duration,
             durationMs: Math.round(this.duration * 1000),
             bpm: this.detectedBpm,
-            beatsCount: this.detectedBeats.length
+            beatsCount: this.detectedBeats.length,
+            confidence: Math.round(this.beatConfidence * 100)
         };
     }
 
     /**
-     * High-Precision Spectral Flux & Rising-Edge Attack Detector
-     * Catches the exact 0ms instant when drums/vocals hit, eliminating lag.
+     * Production beat detector:
+     * mono mix -> Hann-window FFT -> multi-band spectral flux -> adaptive
+     * threshold -> onset peaks -> tempo/phase tracking. The old detector
+     * only compared two RMS values, which made it particularly vulnerable to
+     * vocals and volume changes.
      */
     detectBeats(sensitivity = null, offsetMs = null) {
         if (!this.audioBuffer) return;
@@ -72,80 +78,143 @@ class AMAudioEngine {
         if (sensitivity !== null) this.sensitivity = sensitivity;
         if (offsetMs !== null) this.latencyOffsetMs = offsetMs;
 
-        const rawData = this.audioBuffer.getChannelData(0);
+        const rawData = this._toMono(this.audioBuffer);
         const sampleRate = this.audioBuffer.sampleRate;
-        
-        // Window of 512 samples (~11.6ms at 44.1kHz for ultra-sharp transient accuracy)
-        const frameSize = 512;
-        const totalFrames = Math.floor(rawData.length / frameSize);
-        const frameEnergy = new Float32Array(totalFrames);
-        const spectralFlux = new Float32Array(totalFrames);
+        const frameSize = 1024;
+        const hopSize = 256;
+        const fftSize = 1024;
+        const frameCount = Math.max(0, Math.floor((rawData.length - frameSize) / hopSize) + 1);
+        const flux = new Float32Array(frameCount);
+        const previous = new Float32Array(fftSize / 2 + 1);
+        const real = new Float32Array(fftSize);
+        const imag = new Float32Array(fftSize);
+        const window = this._hannWindow(fftSize);
+        for (let frame = 0; frame < frameCount; frame++) {
+            const start = frame * hopSize;
+            real.fill(0); imag.fill(0);
+            for (let j = 0; j < frameSize; j++) real[j] = rawData[start + j] * window[j];
+            this._fft(real, imag);
 
-        // 1. Calculate RMS energy per 11.6ms frame
-        for (let i = 0; i < totalFrames; i++) {
-            let sum = 0;
-            const start = i * frameSize;
-            for (let j = 0; j < frameSize; j++) {
-                const val = rawData[start + j];
-                sum += val * val;
+            let value = 0;
+            for (let bin = 1; bin <= fftSize / 2; bin++) {
+                const magnitude = Math.sqrt(real[bin] * real[bin] + imag[bin] * imag[bin]);
+                const hz = bin * sampleRate / fftSize;
+                const bandWeight = hz < 180 ? 1.35 : (hz < 2500 ? 1.0 : 0.72);
+                const rise = Math.max(0, magnitude - previous[bin]);
+                value += rise * bandWeight;
+                previous[bin] = magnitude;
             }
-            frameEnergy[i] = Math.sqrt(sum / frameSize);
+            flux[frame] = Math.log1p(value);
         }
 
-        // 2. Calculate Spectral Flux (First Derivative of Rising Attack)
-        for (let i = 1; i < totalFrames; i++) {
-            const diff = frameEnergy[i] - frameEnergy[i - 1];
-            spectralFlux[i] = diff > 0 ? diff : 0; // Half-wave rectification
+        // Normalize and locally detrend the onset envelope.
+        let maxFlux = 0;
+        for (let i = 0; i < flux.length; i++) if (flux[i] > maxFlux) maxFlux = flux[i];
+        if (maxFlux > 0) for (let i = 0; i < flux.length; i++) flux[i] /= maxFlux;
+
+        const localWindow = Math.max(8, Math.round(0.35 * sampleRate / hopSize));
+        const candidates = [];
+        for (let i = localWindow; i < flux.length - localWindow; i++) {
+            let sum = 0, sumSq = 0;
+            for (let j = i - localWindow; j <= i + localWindow; j++) {
+                sum += flux[j]; sumSq += flux[j] * flux[j];
+            }
+            const count = localWindow * 2 + 1;
+            const mean = sum / count;
+            const std = Math.sqrt(Math.max(0, sumSq / count - mean * mean));
+            const threshold = mean + this.sensitivity * Math.max(std, 0.025);
+            if (flux[i] >= threshold && flux[i] >= flux[i - 1] && flux[i] > flux[i + 1]) {
+                const timeMs = i * hopSize / sampleRate * 1000;
+                candidates.push({ timeMs, strength: flux[i] - mean });
+            }
         }
 
-        // 3. Dynamic adaptive threshold with balanced window
-        const localWindow = 20;
-        const detected = [];
-        const minBeatDistanceMs = 360; // Natural phrase & beat cadence (~160 BPM max)
-        let lastBeatTimeMs = -minBeatDistanceMs;
+        // Keep strong peaks first within a short refractory period, then sort.
+        const minOnsetDistance = 110;
+        candidates.sort((a, b) => b.strength - a.strength);
+        const peaks = [];
+        for (const candidate of candidates) {
+            if (peaks.every(p => Math.abs(p.timeMs - candidate.timeMs) >= minOnsetDistance)) peaks.push(candidate);
+        }
+        peaks.sort((a, b) => a.timeMs - b.timeMs);
+        this.detectedOnsets = peaks.map(p => Math.max(0, Math.round(p.timeMs + this.latencyOffsetMs)));
 
-        for (let i = localWindow; i < totalFrames - localWindow; i++) {
-            let localSum = 0;
-            for (let w = -localWindow; w <= localWindow; w++) {
-                localSum += spectralFlux[i + w];
-            }
-            const localMean = localSum / (2 * localWindow + 1);
-            const threshold = localMean * this.sensitivity + 0.005;
+        const tempo = this._estimateTempo(peaks.map(p => p.timeMs));
+        this.detectedBpm = tempo.bpm;
+        this.beatConfidence = tempo.confidence;
+        const grid = this._buildBeatGrid(peaks, tempo.bpm, tempo.phaseMs);
+        this.detectedBeats = grid.map(ms => Math.max(0, Math.round(ms + this.latencyOffsetMs)));
+    }
 
-            // Check if current frame is a local peak and exceeds threshold
-            if (
-                spectralFlux[i] > threshold &&
-                spectralFlux[i] > spectralFlux[i - 1] &&
-                spectralFlux[i] >= spectralFlux[i + 1]
-            ) {
-                const exactTimeMs = (i * frameSize / sampleRate) * 1000;
-                
-                if (exactTimeMs - lastBeatTimeMs >= minBeatDistanceMs) {
-                    // Apply pre-roll latency compensation so animation starts instantly
-                    const compensatedTimeMs = Math.max(0, Math.round(exactTimeMs + this.latencyOffsetMs));
-                    detected.push(compensatedTimeMs);
-                    lastBeatTimeMs = exactTimeMs;
+    _toMono(buffer) {
+        const mono = new Float32Array(buffer.length);
+        for (let c = 0; c < buffer.numberOfChannels; c++) {
+            const channel = buffer.getChannelData(c);
+            for (let i = 0; i < buffer.length; i++) mono[i] += channel[i] / buffer.numberOfChannels;
+        }
+        return mono;
+    }
+
+    _hannWindow(size) {
+        const result = new Float32Array(size);
+        for (let i = 0; i < size; i++) result[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / size);
+        return result;
+    }
+
+    _fft(real, imag) {
+        const n = real.length;
+        for (let i = 1, j = 0; i < n; i++) {
+            let bit = n >> 1;
+            for (; j & bit; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if (i < j) { [real[i], real[j]] = [real[j], real[i]]; [imag[i], imag[j]] = [imag[j], imag[i]]; }
+        }
+        for (let size = 2; size <= n; size <<= 1) {
+            const half = size >> 1, angle = -2 * Math.PI / size;
+            for (let start = 0; start < n; start += size) {
+                for (let k = 0; k < half; k++) {
+                    const c = Math.cos(angle * k), s = Math.sin(angle * k);
+                    const i = start + k, j = i + half;
+                    const tr = real[j] * c - imag[j] * s, ti = real[j] * s + imag[j] * c;
+                    real[j] = real[i] - tr; imag[j] = imag[i] - ti;
+                    real[i] += tr; imag[i] += ti;
                 }
             }
         }
+    }
 
-        this.detectedBeats = detected;
-
-        // Estimate BPM from peak intervals
-        if (detected.length >= 2) {
-            const intervals = [];
-            for (let i = 1; i < detected.length; i++) {
-                const diff = detected[i] - detected[i - 1];
-                if (diff >= 250 && diff <= 1400) {
-                    intervals.push(diff);
-                }
+    _estimateTempo(times) {
+        if (times.length < 2) return { bpm: 120, phaseMs: times[0] || 0, confidence: 0 };
+        const scores = [];
+        for (let bpm = 60; bpm <= 200; bpm += 0.5) {
+            const interval = 60000 / bpm;
+            let score = 0, hits = 0;
+            for (const time of times) {
+                const nearest = Math.round((time - times[0]) / interval) * interval + times[0];
+                const error = Math.abs(time - nearest);
+                if (error < interval * 0.12) { score += 1 - error / (interval * 0.12); hits++; }
             }
-            if (intervals.length > 0) {
-                intervals.sort((a, b) => a - b);
-                const medianInterval = intervals[Math.floor(intervals.length / 2)];
-                this.detectedBpm = Math.round((60000 / medianInterval) * 10) / 10;
-            }
+            scores.push({ bpm, score: score + hits * 0.12 });
         }
+        scores.sort((a, b) => b.score - a.score);
+        const best = scores[0];
+        const second = scores[1] || { score: 0 };
+        const confidence = Math.max(0, Math.min(1, (best.score - second.score) / Math.max(1, best.score)));
+        return { bpm: Math.round(best.bpm * 10) / 10, phaseMs: times[0], confidence };
+    }
+
+    _buildBeatGrid(peaks, bpm, phaseMs) {
+        if (peaks.length < 2) return peaks.map(p => p.timeMs);
+        const interval = 60000 / Math.max(40, bpm);
+        const endMs = this.duration * 1000;
+        const grid = [];
+        for (let t = phaseMs; t < endMs; t += interval) grid.push(t);
+        // Only expose grid beats supported by nearby onsets; retain transient timing.
+        return grid.map(t => {
+            let nearest = null, distance = Infinity;
+            for (const peak of peaks) { const d = Math.abs(peak.timeMs - t); if (d < distance) { distance = d; nearest = peak.timeMs; } }
+            return nearest !== null && distance <= interval * 0.22 ? nearest : t;
+        }).filter((t, i, a) => i === 0 || t - a[i - 1] > 80);
     }
 
     /**
