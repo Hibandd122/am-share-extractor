@@ -4,6 +4,14 @@ AM Auto Lyrics - Web Application Server
 
 import os
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from flask import Flask, request, Response, render_template, jsonify
 
 # Add core directory to Python path
@@ -21,6 +29,7 @@ app = Flask(
     static_folder=os.path.join(BASE_DIR, "static"),
     static_url_path="/static",
 )
+app.config["MAX_CONTENT_LENGTH"] = 128 * 1024 * 1024
 
 
 @app.route("/", methods=["GET"])
@@ -101,7 +110,7 @@ def get_whisper_model():
             import whisper
             print("[*] Loading Whisper base model into memory...")
             _whisper_model = whisper.load_model("base")
-            print("[✓] Whisper base model loaded successfully.")
+            print("[OK] Whisper base model loaded successfully.")
         except Exception as e:
             print(f"[!] Failed to load whisper: {e}")
     return _whisper_model
@@ -207,6 +216,10 @@ def api_whisper_align():
             "bookmarks": sorted(list(set(bookmarks))),
             "count": len(final_lyrics)
         })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": f"Lỗi xử lý Whisper: {str(e)}"}), 500
     finally:
         if os.path.exists(tmp_path):
             try:
@@ -218,4 +231,7 @@ def api_whisper_align():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
     print(f"[*] Starting AM Auto Lyrics Studio on http://127.0.0.1:{port}")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    # Preload Whisper so first request is instant
+    get_whisper_model()
+    # Run with use_reloader=False so Python library files don't trigger unexpected server restarts
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
