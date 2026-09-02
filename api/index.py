@@ -1,7 +1,9 @@
 import os
 import sys
+import mimetypes
 import urllib.parse
 from flask import Flask, request, Response, render_template, jsonify
+import jinja2
 
 # Resolve workspace and module paths robustly for local and Vercel Serverless
 API_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -57,6 +59,38 @@ app = Flask(
     static_url_path="/static",
 )
 
+# Multi-path Jinja loader to guarantee templates are found in any Vercel environment
+template_candidates = [
+    os.path.join(API_DIR, "templates"),
+    os.path.join(ROOT_DIR, "templates"),
+    "/var/task/api/templates",
+    "/var/task/templates",
+]
+valid_template_dirs = [d for d in template_candidates if os.path.isdir(d)]
+if valid_template_dirs:
+    app.jinja_loader = jinja2.ChoiceLoader([jinja2.FileSystemLoader(d) for d in valid_template_dirs])
+
+
+# WSGI Middleware to fix Vercel serverless rewrite paths
+class VercelPathFix:
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        path = environ.get("PATH_INFO", "")
+        # If Vercel passed /api/index or /api/index.py prefix in rewrite, strip it
+        for prefix in ("/api/index.py", "/api/index"):
+            if path == prefix:
+                environ["PATH_INFO"] = "/"
+                break
+            elif path.startswith(prefix + "/"):
+                environ["PATH_INFO"] = path[len(prefix):]
+                break
+        return self.wsgi_app(environ, start_response)
+
+
+app.wsgi_app = VercelPathFix(app.wsgi_app)
+
 
 @app.route("/", methods=["GET"])
 def home():
@@ -74,6 +108,19 @@ def qr_page():
 def batch_page():
     """Renders the batch links processing page."""
     return render_template("batch.html", active_page="batch")
+
+
+@app.route("/static/<path:filename>", methods=["GET"])
+def serve_static(filename):
+    """Fallback static files handler to ensure CSS/JS work in all Vercel configurations."""
+    for s_dir in [STATIC_DIR, os.path.join(API_DIR, "static"), os.path.join(ROOT_DIR, "static"), "/var/task/api/static", "/var/task/static"]:
+        if os.path.isdir(s_dir):
+            file_path = os.path.join(s_dir, filename)
+            if os.path.isfile(file_path):
+                mime, _ = mimetypes.guess_type(file_path)
+                with open(file_path, "rb") as f:
+                    return Response(f.read(), mimetype=mime or "text/plain")
+    return "Static file not found", 404
 
 
 @app.route("/extract", methods=["GET"])
@@ -255,7 +302,7 @@ def api_batch():
         return jsonify({"success": False, "error": "Provide an array of URLs in 'urls' field."}), 400
 
     results = []
-    for link in urls[:20]:  # Limit max 20 per request
+    for link in urls[:20]:
         link = link.strip()
         if not link:
             continue
