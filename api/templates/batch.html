@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Extractor · Process Multiple Alight Motion Links{% endblock %}
+
+{% block content %}
+<section class="hero-section" style="margin-bottom: 30px;">
+    <div class="hero-tag">
+        <span>📑</span> Batch Pipeline
+    </div>
+    <h1 class="hero-title">
+        Batch <span class="gradient-text">Link Inspector</span>
+    </h1>
+    <p class="hero-subtitle">
+        Analyze and extract XML definitions and metadata for multiple Alight Motion share links concurrently.
+    </p>
+</section>
+
+<div class="glass-card extractor-card" style="max-width: 860px;">
+    <div class="input-wrapper">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+            Paste Alight Motion links (one per line):
+        </label>
+        <textarea 
+            id="batchInput" 
+            class="main-input" 
+            rows="6" 
+            style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 14px; font-family: var(--font-mono); font-size: 13px;"
+            placeholder="https://alightcreative.com/am/share/u/.../p/...&#10;https://alightcreative.com/am/share/u/.../p/..."></textarea>
+    </div>
+
+    <div class="button-group">
+        <button type="button" id="startBatchBtn" class="btn-primary">
+            <span class="btn-icon">⚡</span>
+            <span class="btn-text">Process Batch Links</span>
+            <div class="btn-spinner"></div>
+        </button>
+        <button type="button" id="clearBatchBtn" class="btn-secondary">
+            Clear
+        </button>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div id="batchProgressContainer" style="display: none; margin-top: 24px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">
+            <span id="batchProgressStatus">Processing links...</span>
+            <span id="batchProgressPercent">0%</span>
+        </div>
+        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
+            <div id="batchProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.3s ease;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Table -->
+<div id="batchResultsContainer" class="glass-card" style="max-width: 860px; margin: 0 auto; display: none;">
+    <div class="section-header-row">
+        <h3 class="section-title">
+            <span>📊</span> Extracted Projects (<span id="batchSuccessCount">0</span>)
+        </h3>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="info-table" id="batchTable" style="margin-bottom: 0;">
+            <thead>
+                <tr style="text-align: left; font-size: 11px; text-transform: uppercase; color: var(--text-muted);">
+                    <th style="padding: 10px;">Project Title</th>
+                    <th style="padding: 10px;">Resolution</th>
+                    <th style="padding: 10px;">FPS</th>
+                    <th style="padding: 10px;">Layers</th>
+                    <th style="padding: 10px;">Media</th>
+                    <th style="padding: 10px; text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="batchTableBody"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const startBtn = document.getElementById("startBatchBtn");
+    const clearBtn = document.getElementById("clearBatchBtn");
+    const input = document.getElementById("batchInput");
+    const progressContainer = document.getElementById("batchProgressContainer");
+    const progressBar = document.getElementById("batchProgressBar");
+    const progressStatus = document.getElementById("batchProgressStatus");
+    const progressPercent = document.getElementById("batchProgressPercent");
+    const resultsContainer = document.getElementById("batchResultsContainer");
+    const tableBody = document.getElementById("batchTableBody");
+    const successCount = document.getElementById("batchSuccessCount");
+
+    clearBtn.addEventListener("click", () => {
+        input.value = "";
+        resultsContainer.style.display = "none";
+        tableBody.innerHTML = "";
+    });
+
+    startBtn.addEventListener("click", async () => {
+        const raw = input.value.trim();
+        if (!raw) {
+            showToast("Please enter at least one Alight Motion share link.", "info");
+            return;
+        }
+
+        const lines = raw.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length === 0) return;
+
+        startBtn.classList.add("loading");
+        progressContainer.style.display = "block";
+        resultsContainer.style.display = "block";
+        tableBody.innerHTML = "";
+        
+        let completed = 0;
+        let successful = 0;
+
+        for (let i = 0; i < lines.length; i++) {
+            const url = lines[i];
+            progressStatus.textContent = `Processing link ${i + 1} of ${lines.length}...`;
+            const pct = Math.round(((i + 1) / lines.length) * 100);
+            progressBar.style.width = `${pct}%`;
+            progressPercent.textContent = `${pct}%`;
+
+            try {
+                const res = await fetch(`/api/info?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+
+                const tr = document.createElement("tr");
+                if (res.ok && data.success) {
+                    successful++;
+                    tr.innerHTML = `
+                        <td style="padding: 12px 10px; font-weight: 600; color: var(--text-primary);">
+                            ${escapeHtml(data.metadata.title)}
+                        </td>
+                        <td style="padding: 12px 10px; color: var(--text-secondary);">${data.metadata.resolution}</td>
+                        <td style="padding: 12px 10px; color: var(--text-secondary);">${data.metadata.fps}</td>
+                        <td style="padding: 12px 10px; color: var(--text-secondary);">${data.metadata.total_layers}</td>
+                        <td style="padding: 12px 10px; color: var(--text-secondary);">${data.package.media_count}</td>
+                        <td style="padding: 12px 10px; text-align: right;">
+                            <a href="/preview?url=${encodeURIComponent(url)}" class="history-btn" target="_blank">Studio</a>
+                            <a href="/extract?mode=xml&url=${encodeURIComponent(url)}" class="history-btn">XML</a>
+                            <a href="/extract?mode=full&url=${encodeURIComponent(url)}" class="history-btn">ZIP</a>
+                        </td>
+                    `;
+                } else {
+                    tr.innerHTML = `
+                        <td style="padding: 12px 10px; color: var(--rose);" colspan="5">
+                            ✕ Failed: ${escapeHtml(url)} (${escapeHtml(data.error || "Error")})
+                        </td>
+                        <td style="padding: 12px 10px; text-align: right;">
+                            <span class="p-badge" style="color: var(--rose);">Error</span>
+                        </td>
+                    `;
+                }
+                tableBody.appendChild(tr);
+            } catch (err) {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td style="padding: 12px 10px; color: var(--rose);" colspan="6">
+                        ✕ Network Error: ${escapeHtml(url)}
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            }
+            completed++;
+            successCount.textContent = successful;
+        }
+
+        startBtn.classList.remove("loading");
+        progressStatus.textContent = `Completed! Successfully extracted ${successful} of ${lines.length} projects.`;
+        showToast(`Batch completed: ${successful}/${lines.length} projects extracted.`, "success");
+    });
+});
+</script>
+{% endblock %}

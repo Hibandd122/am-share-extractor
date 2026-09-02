@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Nexus Alight Extractor · Instant XML & Project Downloader{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="hero-tag">
+        <span>⚡</span> Direct Firebase Storage Gateway
+    </div>
+    <h1 class="hero-title">
+        Extract Alight Motion <br>
+        <span class="gradient-text">XML & Media Assets</span>
+    </h1>
+    <p class="hero-subtitle">
+        Bypass platform restrictions to analyze project scenes, inspect layer hierarchies, and download original media packages from any Alight Motion share link.
+    </p>
+</section>
+
+<!-- Main Extractor Glass Card -->
+<div class="glass-card extractor-card">
+    <form id="extractForm" action="/extract" method="GET">
+        <div class="input-wrapper">
+            <div class="url-input-box">
+                <span class="url-icon">🔗</span>
+                <input 
+                    type="text" 
+                    id="urlInput" 
+                    name="url" 
+                    class="main-input"
+                    placeholder="https://alightcreative.com/am/share/u/.../p/... (or paste QR image)" 
+                    autocomplete="off" 
+                    required 
+                />
+                <div class="input-actions">
+                    <a href="/qr" class="input-btn-icon" title="Scan or Upload QR Code" style="text-decoration: none;">
+                        📷 Scan QR
+                    </a>
+                    <button type="button" id="pasteBtn" class="input-btn-icon" title="Paste link or image from clipboard">
+                        📋 Paste
+                    </button>
+                    <button type="button" id="clearBtn" class="input-btn-icon" title="Clear input">
+                        ✕
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Extraction Mode Selector -->
+        <div class="mode-selector">
+            <label class="mode-card selected">
+                <input type="radio" name="mode" value="full" checked />
+                <div>
+                    <span class="mode-title">Full Package (.zip)</span>
+                    <span class="mode-desc">XML + All raw media files</span>
+                </div>
+            </label>
+
+            <label class="mode-card">
+                <input type="radio" name="mode" value="xml" />
+                <div>
+                    <span class="mode-title">XML Scene Only</span>
+                    <span class="mode-desc">Standard .xml for AM import</span>
+                </div>
+            </label>
+
+            <label class="mode-card">
+                <input type="radio" name="mode" value="beautify" />
+                <div>
+                    <span class="mode-title">Beautified XML</span>
+                    <span class="mode-desc">Cleanly formatted & indented</span>
+                </div>
+            </label>
+        </div>
+
+        <!-- Action Button Row -->
+        <div class="button-group">
+            <button type="submit" id="submitBtn" class="btn-primary">
+                <span class="btn-icon">⚡</span>
+                <span class="btn-text">Download Payload</span>
+                <div class="btn-spinner"></div>
+            </button>
+
+            <button type="button" id="previewBtn" class="btn-secondary" title="Open Interactive Studio">
+                <span>🎨</span>
+                <span>Studio Preview</span>
+            </button>
+
+            <button type="button" id="inspectBtn" class="btn-secondary" title="Quick Inspect Metadata">
+                <span>🔍</span>
+                <span>Quick Inspect</span>
+            </button>
+        </div>
+    </form>
+
+    <!-- Quick Inspect Live Drawer (AJAX loaded) -->
+    <div id="inspectDrawer" class="inspect-drawer">
+        <div class="inspect-header">
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px;">PROJECT SUMMARY</span>
+                <h3 id="statTitle" class="inspect-title">Loading...</h3>
+            </div>
+            <a href="#" id="openStudioLink" class="btn-studio primary" style="font-size: 12px; padding: 6px 12px;">
+                Open Studio →
+            </a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span id="statRes" class="stat-val">1920×1080</span>
+                <span class="stat-lbl">Resolution</span>
+            </div>
+            <div class="stat-item">
+                <span id="statFps" class="stat-val">30 FPS</span>
+                <span class="stat-lbl">Framerate</span>
+            </div>
+            <div class="stat-item">
+                <span id="statDuration" class="stat-val">00:15.0</span>
+                <span class="stat-lbl">Duration</span>
+            </div>
+            <div class="stat-item">
+                <span id="statLayers" class="stat-val">12</span>
+                <span class="stat-lbl">Layers</span>
+            </div>
+            <div class="stat-item">
+                <span id="statMedia" class="stat-val">4</span>
+                <span class="stat-lbl">Media Assets</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- History Section -->
+<div id="historyContainer" class="history-section" style="display: none;">
+    <div class="section-header-row">
+        <h3 class="section-title">
+            <span>⏱️</span> Recent Extractions
+        </h3>
+        <button id="clearHistoryBtn" class="btn-clear-history">Clear History</button>
+    </div>
+    <ul id="historyList" class="history-list"></ul>
+</div>
+
+<!-- Feature Cards Grid -->
+<div class="features-grid">
+    <div class="feature-card">
+        <div class="feature-icon-box">⚡</div>
+        <h3 class="feature-title">Cloud Storage Bypass</h3>
+        <p class="feature-desc">
+            Directly reconstructs Firebase Storage REST API endpoints to fetch packages without app auth or limitations.
+        </p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon-box">🎨</div>
+        <h3 class="feature-title">Interactive SVG Studio</h3>
+        <p class="feature-desc">
+            Visualize project canvas layouts, explore nested embed scenes, and inspect layer transforms with pan & zoom.
+        </p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon-box">📦</div>
+        <h3 class="feature-title">Asset Extractor</h3>
+        <p class="feature-desc">
+            Extract and download individual images, videos, audio tracks, and fonts bundled inside the project package.
+        </p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon-box">💻</div>
+        <h3 class="feature-title">Developer Ready</h3>
+        <p class="feature-desc">
+            Includes full REST JSON endpoints (<code>/api/info</code>, <code>/api/asset</code>) and standalone Python CLI.
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -4,13 +4,12 @@ import urllib.parse
 from flask import Flask, request, Response, render_template, jsonify
 
 # Resolve workspace and module paths robustly for local and Vercel Serverless
-CURR_FILE = os.path.abspath(__file__)
-API_DIR = os.path.dirname(CURR_FILE)
+API_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(API_DIR)
 
 CANDIDATE_PATHS = [
-    ROOT_DIR,
     API_DIR,
+    ROOT_DIR,
     os.getcwd(),
     "/var/task",
     "/var/task/api",
@@ -42,20 +41,14 @@ from core.renderer import (
     render_tree_html,
 )
 
-# Detect template & static directories dynamically
-TEMPLATE_DIR = None
-STATIC_DIR = None
+# Detect template & static directories (checking api/ first, then root)
+TEMPLATE_DIR = os.path.join(API_DIR, "templates")
+if not os.path.isdir(TEMPLATE_DIR):
+    TEMPLATE_DIR = os.path.join(ROOT_DIR, "templates")
 
-for p in CANDIDATE_PATHS:
-    t_path = os.path.join(p, "templates")
-    s_path = os.path.join(p, "static")
-    if os.path.isdir(t_path) and TEMPLATE_DIR is None:
-        TEMPLATE_DIR = t_path
-    if os.path.isdir(s_path) and STATIC_DIR is None:
-        STATIC_DIR = s_path
-
-TEMPLATE_DIR = TEMPLATE_DIR or os.path.join(ROOT_DIR, "templates")
-STATIC_DIR = STATIC_DIR or os.path.join(ROOT_DIR, "static")
+STATIC_DIR = os.path.join(API_DIR, "static")
+if not os.path.isdir(STATIC_DIR):
+    STATIC_DIR = os.path.join(ROOT_DIR, "static")
 
 app = Flask(
     __name__,

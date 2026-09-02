@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}QR Code to XML · Instant Alight Motion QR Scanner{% endblock %}
+
+{% block content %}
+<section class="hero-section" style="margin-bottom: 30px;">
+    <div class="hero-tag">
+        <span>📷</span> QR Code Scanner
+    </div>
+    <h1 class="hero-title">
+        QR Code <span class="gradient-text">to XML Extractor</span>
+    </h1>
+    <p class="hero-subtitle">
+        Scan, upload, or paste (Ctrl+V) an Alight Motion QR Code to instantly decode its share link and extract project XML & media.
+    </p>
+</section>
+
+<div class="glass-card extractor-card" style="max-width: 780px;">
+    <!-- QR Input Mode Tabs -->
+    <div class="mode-selector" style="margin-bottom: 20px;">
+        <button type="button" id="tabUploadBtn" class="mode-card selected" style="border: none; text-align: left;">
+            <span style="font-size: 20px;">📁</span>
+            <div>
+                <span class="mode-title">Upload / Drop / Paste</span>
+                <span class="mode-desc">PNG, JPG, WEBP, or Ctrl+V</span>
+            </div>
+        </button>
+
+        <button type="button" id="tabCameraBtn" class="mode-card" style="border: none; text-align: left;">
+            <span style="font-size: 20px;">📷</span>
+            <div>
+                <span class="mode-title">Live Camera Scan</span>
+                <span class="mode-desc">Use device camera</span>
+            </div>
+        </button>
+    </div>
+
+    <!-- Panel 1: File Dropzone & Paste -->
+    <div id="uploadPanel">
+        <div id="qrDropzone" class="qr-dropzone">
+            <input type="file" id="qrFileInput" accept="image/*" style="display: none;" />
+            <div class="dropzone-icon">📷</div>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                Drag & Drop QR Image here
+            </h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                or press <kbd style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono);">Ctrl + V</kbd> to paste screenshot directly
+            </p>
+            <button type="button" class="btn-studio secondary" id="browseFileBtn">
+                📁 Browse Image File
+            </button>
+        </div>
+
+        <div id="qrImagePreviewContainer" style="display: none; margin-top: 16px; text-align: center;">
+            <img id="qrImagePreview" src="" alt="QR Preview" style="max-height: 200px; border-radius: var(--radius-md); border: 1px solid var(--glass-border);" />
+        </div>
+    </div>
+
+    <!-- Panel 2: Live Camera Viewfinder -->
+    <div id="cameraPanel" style="display: none;">
+        <div class="camera-viewfinder">
+            <video id="qrCameraVideo" class="camera-video"></video>
+            <div class="laser-scanner"></div>
+            <div class="viewfinder-frame"></div>
+        </div>
+        <div style="display: flex; justify-content: center; gap: 12px; margin-top: 16px;">
+            <button type="button" id="startCamBtn" class="btn-primary" style="flex: unset; padding: 10px 20px;">
+                ▶ Start Camera
+            </button>
+            <button type="button" id="stopCamBtn" class="btn-secondary" style="flex: unset; padding: 10px 20px; display: none;">
+                ⏹ Stop Camera
+            </button>
+        </div>
+    </div>
+
+    <!-- Decoded Result Card -->
+    <div id="qrResultCard" class="inspect-drawer" style="display: none; margin-top: 24px;">
+        <div class="inspect-header">
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--emerald); font-weight: 700; letter-spacing: 1px;">
+                    ✓ QR CODE DECODED
+                </span>
+                <h3 class="inspect-title" style="margin-top: 4px;">Alight Motion Share Link Detected</h3>
+            </div>
+        </div>
+
+        <div class="input-wrapper" style="margin-bottom: 16px;">
+            <div class="url-input-box">
+                <span class="url-icon">🔗</span>
+                <input type="text" id="qrDecodedUrl" class="main-input" readonly />
+                <div class="input-actions">
+                    <button type="button" id="copyUrlBtn" class="input-btn-icon" title="Copy URL">
+                        📋 Copy
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <a href="#" id="qrExtractXmlBtn" class="btn-primary" style="text-decoration: none;">
+                <span>📄</span>
+                <span>Extract XML</span>
+            </a>
+            <a href="#" id="qrOpenStudioBtn" class="btn-secondary" style="text-decoration: none;">
+                <span>🎨</span>
+                <span>Studio Preview</span>
+            </a>
+            <a href="#" id="qrDownloadZipBtn" class="btn-secondary" style="text-decoration: none;">
+                <span>📦</span>
+                <span>Full ZIP</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Tips & Instructions Section -->
+<div class="features-grid" style="max-width: 780px; margin: 40px auto 0;">
+    <div class="feature-card">
+        <div class="feature-icon-box">📱</div>
+        <h3 class="feature-title">Screenshot QR Code</h3>
+        <p class="feature-desc">
+            Take a screenshot of any AM preset QR code from TikTok, Instagram, YouTube, or Pinterest.
+        </p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon-box">📋</div>
+        <h3 class="feature-title">Instant Clipboard Paste</h3>
+        <p class="feature-desc">
+            Press <kbd>Ctrl + V</kbd> anywhere on this page to instantly scan and extract without saving the image.
+        </p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon-box">⚡</div>
+        <h3 class="feature-title">Direct XML Export</h3>
+        <p class="feature-desc">
+            Bypasses the Alight Motion mobile app import dialog and gives you the raw XML project immediately.
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- jsQR library for ultra-fast client-side QR scanning -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="/static/js/qr-scanner.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const tabUpload = document.getElementById("tabUploadBtn");
+    const tabCamera = document.getElementById("tabCameraBtn");
+    const uploadPanel = document.getElementById("uploadPanel");
+    const cameraPanel = document.getElementById("cameraPanel");
+    
+    const dropzone = document.getElementById("qrDropzone");
+    const fileInput = document.getElementById("qrFileInput");
+    const browseBtn = document.getElementById("browseFileBtn");
+    const previewImg = document.getElementById("qrImagePreview");
+    const previewContainer = document.getElementById("qrImagePreviewContainer");
+
+    const videoEl = document.getElementById("qrCameraVideo");
+    const startCamBtn = document.getElementById("startCamBtn");
+    const stopCamBtn = document.getElementById("stopCamBtn");
+
+    const resultCard = document.getElementById("qrResultCard");
+    const resultUrlInput = document.getElementById("qrDecodedUrl");
+    const extractXmlBtn = document.getElementById("qrExtractXmlBtn");
+    const openStudioBtn = document.getElementById("qrOpenStudioBtn");
+    const downloadZipBtn = document.getElementById("qrDownloadZipBtn");
+    const copyUrlBtn = document.getElementById("copyUrlBtn");
+
+    // Tab switcher
+    tabUpload.addEventListener("click", () => {
+        tabUpload.classList.add("selected");
+        tabCamera.classList.remove("selected");
+        uploadPanel.style.display = "block";
+        cameraPanel.style.display = "none";
+        qrScanner.stopCamera();
+        stopCamBtn.style.display = "none";
+        startCamBtn.style.display = "block";
+    });
+
+    tabCamera.addEventListener("click", () => {
+        tabCamera.classList.add("selected");
+        tabUpload.classList.remove("selected");
+        cameraPanel.style.display = "block";
+        uploadPanel.style.display = "none";
+    });
+
+    // File Browse
+    browseBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fileInput.click();
+    });
+
+    dropzone.addEventListener("click", () => {
+        fileInput.click();
+    });
+
+    // Drag & Drop
+    ["dragenter", "dragover"].forEach(evt => {
+        dropzone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            dropzone.classList.add("dragover");
+        });
+    });
+
+    ["dragleave", "drop"].forEach(evt => {
+        dropzone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            dropzone.classList.remove("dragover");
+        });
+    });
+
+    dropzone.addEventListener("drop", (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) processQrFile(files[0]);
+    });
+
+    fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) processQrFile(e.target.files[0]);
+    });
+
+    async function processQrFile(file) {
+        showToast("Decoding QR code image...", "info");
+        try {
+            const res = await qrScanner.decodeFromFile(file);
+            previewImg.src = res.dataUrl;
+            previewContainer.style.display = "block";
+            displayDecodedResult(res.text);
+        } catch (err) {
+            showToast(err.message || "Failed to decode QR code.", "error");
+        }
+    }
+
+    // Camera Scan Controls
+    startCamBtn.addEventListener("click", () => {
+        startCamBtn.style.display = "none";
+        stopCamBtn.style.display = "block";
+        qrScanner.startCamera(
+            videoEl,
+            (decodedText) => {
+                showToast("✓ QR Code scanned successfully!", "success");
+                stopCamBtn.style.display = "none";
+                startCamBtn.style.display = "block";
+                displayDecodedResult(decodedText);
+            },
+            (err) => {
+                showToast("Camera error: " + err.message, "error");
+                stopCamBtn.style.display = "none";
+                startCamBtn.style.display = "block";
+            }
+        );
+    });
+
+    stopCamBtn.addEventListener("click", () => {
+        qrScanner.stopCamera();
+        stopCamBtn.style.display = "none";
+        startCamBtn.style.display = "block";
+    });
+
+    function displayDecodedResult(url) {
+        resultUrlInput.value = url;
+        resultCard.style.display = "block";
+        resultCard.scrollIntoView({ behavior: "smooth" });
+
+        extractXmlBtn.href = `/extract?mode=xml&url=${encodeURIComponent(url)}`;
+        openStudioBtn.href = `/preview?url=${encodeURIComponent(url)}`;
+        downloadZipBtn.href = `/extract?mode=full&url=${encodeURIComponent(url)}`;
+    }
+
+    if (copyUrlBtn) {
+        copyUrlBtn.addEventListener("click", () => {
+            navigator.clipboard.writeText(resultUrlInput.value);
+            showToast("Copied decoded URL to clipboard!", "success");
+        });
+    }
+});
+</script>
+{% endblock %}

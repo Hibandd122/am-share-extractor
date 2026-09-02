@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Studio · {{ metadata.title }} ({{ metadata.resolution }}){% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/preview.css">
+{% endblock %}
+
+{% block content %}
+<div class="preview-container">
+    <!-- Studio Header Topbar -->
+    <div class="studio-topbar">
+        <div class="studio-project-info">
+            <a href="/" class="btn-back" title="Back to Extractor">←</a>
+            <div class="project-headings">
+                <h1>{{ metadata.title }}</h1>
+                <div class="project-badges">
+                    <span class="p-badge highlight">📐 {{ metadata.resolution }}</span>
+                    <span class="p-badge emerald">🎬 {{ metadata.aspect_ratio }}</span>
+                    <span class="p-badge purple">⚡ {{ metadata.fps }} FPS</span>
+                    <span class="p-badge">⏱️ {{ metadata.duration_formatted }}</span>
+                    <span class="p-badge">📊 {{ metadata.total_layers }} Layers</span>
+                    <span class="p-badge">📦 {{ package.media_count }} Media</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="studio-actions">
+            <a href="/extract?mode=full&url={{ raw_url|urlencode }}" class="btn-studio primary" title="Download ZIP with all media">
+                <span>⬇️</span> Download Full ZIP ({{ package.total_uncompressed_formatted }})
+            </a>
+            <a href="/extract?mode=xml&url={{ raw_url|urlencode }}" class="btn-studio secondary" title="Download clean XML scene">
+                <span>📄</span> Download XML
+            </a>
+            <a href="/extract?mode=beautify&url={{ raw_url|urlencode }}" class="btn-studio secondary" title="Download formatted XML">
+                <span>✨</span> Beautified XML
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Workspace Grid -->
+    <div class="studio-grid">
+        <!-- Left: Stage Canvas Visualizer -->
+        <div class="stage-card">
+            <div class="stage-toolbar">
+                <span class="toolbar-title">🎨 Canvas Visualizer</span>
+                <div class="toolbar-controls">
+                    <button type="button" class="tool-btn" id="zoomInBtn" title="Zoom In">+</button>
+                    <button type="button" class="tool-btn" id="zoomOutBtn" title="Zoom Out">−</button>
+                    <button type="button" class="tool-btn" id="resetZoomBtn" title="Reset Canvas Fit">⟲</button>
+                    <button type="button" class="tool-btn" id="toggleGridBtn" title="Toggle Background Grid">#</button>
+                </div>
+            </div>
+
+            <div class="stage-viewport" id="stageViewport">
+                {{ svg_markup|safe }}
+            </div>
+        </div>
+
+        <!-- Right: Inspector Panels with Tabs -->
+        <div class="inspector-card">
+            <div class="inspector-tabs">
+                <button type="button" class="tab-btn active" data-tab="tabLayers">
+                    <span>🗂️</span> Layers ({{ metadata.total_layers }})
+                </button>
+                <button type="button" class="tab-btn" data-tab="tabMedia">
+                    <span>🖼️</span> Assets ({{ package.media_count }})
+                </button>
+                <button type="button" class="tab-btn" data-tab="tabXml">
+                    <span>📝</span> XML Source
+                </button>
+                <button type="button" class="tab-btn" data-tab="tabInfo">
+                    <span>ℹ️</span> Info & FX
+                </button>
+            </div>
+
+            <div class="tab-content-area">
+                <!-- Tab 1: Layer Hierarchy Tree -->
+                <div id="tabLayers" class="tab-panel active">
+                    <div class="layer-search-box">
+                        <input type="text" id="layerSearchInput" class="layer-search-input" placeholder="🔍 Filter layers by name or type..." />
+                    </div>
+                    {{ layer_tree_html|safe }}
+                </div>
+
+                <!-- Tab 2: Media Assets Gallery -->
+                <div id="tabMedia" class="tab-panel">
+                    {% if package.media_files %}
+                    <div class="media-grid">
+                        {% for asset in package.media_files %}
+                        <div class="media-asset-card">
+                            <div>
+                                <div class="media-icon-row">
+                                    <span class="media-type-icon">
+                                        {% if asset.category == 'image' %}🖼️
+                                        {% elif asset.category == 'video' %}🎬
+                                        {% elif asset.category == 'audio' %}🎵
+                                        {% else %}📁{% endif %}
+                                    </span>
+                                    <span class="media-size-badge">{{ asset.size_formatted }}</span>
+                                </div>
+                                <div class="media-fn" title="{{ asset.filename }}">{{ asset.basename }}</div>
+                            </div>
+                            <a href="/api/asset?url={{ raw_url|urlencode }}&file={{ asset.filename|urlencode }}" class="btn-download-asset" download>
+                                ⬇ Download Asset
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                        <span>📦</span> No bundled media assets found in this package.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Tab 3: XML Code Viewer -->
+                <div id="tabXml" class="tab-panel">
+                    <div class="code-viewer-container">
+                        <div class="code-actions-bar">
+                            <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+                                {{ package.xml_name }}
+                            </span>
+                            <button type="button" id="copyXmlBtn" class="btn-copy-code">
+                                📋 Copy XML Code
+                            </button>
+                        </div>
+                        <pre class="code-pre" id="xmlCodeBlock"><code>{{ pretty_xml }}</code></pre>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Project Info, Fonts, FX & Manifest -->
+                <div id="tabInfo" class="tab-panel">
+                    <h4 class="info-section-title">Project Specifications</h4>
+                    <table class="info-table">
+                        <tr>
+                            <td>Package ID</td>
+                            <td><code>{{ package_id }}</code></td>
+                        </tr>
+                        <tr>
+                            <td>User ID</td>
+                            <td><code>{{ user_id }}</code></td>
+                        </tr>
+                        <tr>
+                            <td>Resolution</td>
+                            <td>{{ metadata.resolution }} ({{ metadata.aspect_ratio }})</td>
+                        </tr>
+                        <tr>
+                            <td>Framerate</td>
+                            <td>{{ metadata.fps }} FPS</td>
+                        </tr>
+                        <tr>
+                            <td>Duration</td>
+                            <td>{{ metadata.duration_formatted }} ({{ metadata.duration_sec }}s)</td>
+                        </tr>
+                        <tr>
+                            <td>Background Color</td>
+                            <td>
+                                <span style="display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: {{ metadata.bgcolor_css }}; border: 1px solid rgba(255,255,255,0.3); vertical-align: middle; margin-right: 6px;"></span>
+                                <code>{{ metadata.bgcolor_raw }}</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Total Files in ZIP</td>
+                            <td>{{ package.total_files_count }} files ({{ package.total_uncompressed_formatted }})</td>
+                        </tr>
+                    </table>
+
+                    {% if metadata.fonts_used %}
+                    <h4 class="info-section-title">Fonts Referenced ({{ metadata.fonts_used|length }})</h4>
+                    <div class="tags-list">
+                        {% for font in metadata.fonts_used %}
+                        <span class="tag-pill">🔤 {{ font }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if metadata.effects_used %}
+                    <h4 class="info-section-title">Effects & Plugins Used ({{ metadata.effects_used|length }})</h4>
+                    <div class="tags-list">
+                        {% for eff in metadata.effects_used %}
+                        <span class="tag-pill" style="border-color: rgba(139, 92, 246, 0.4); color: #c084fc;">
+                            ⚡ {{ eff }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if package.manifest_name %}
+                    <h4 class="info-section-title">Manifest File ({{ package.manifest_name }})</h4>
+                    <pre class="code-pre" style="max-height: 180px; font-size: 11px;">{{ package.manifest_text }}</pre>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/preview.js"></script>
+{% endblock %}
