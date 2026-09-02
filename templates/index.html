@@ -28,12 +28,15 @@
                     id="urlInput" 
                     name="url" 
                     class="main-input"
-                    placeholder="https://alightcreative.com/am/share/u/.../p/..." 
+                    placeholder="https://alightcreative.com/am/share/u/.../p/... (or paste QR image)" 
                     autocomplete="off" 
                     required 
                 />
                 <div class="input-actions">
-                    <button type="button" id="pasteBtn" class="input-btn-icon" title="Paste link from clipboard">
+                    <a href="/qr" class="input-btn-icon" title="Scan or Upload QR Code" style="text-decoration: none;">
+                        📷 Scan QR
+                    </a>
+                    <button type="button" id="pasteBtn" class="input-btn-icon" title="Paste link or image from clipboard">
                         📋 Paste
                     </button>
                     <button type="button" id="clearBtn" class="input-btn-icon" title="Clear input">

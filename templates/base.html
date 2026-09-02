@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Nexus Alight Extractor · Professional AM XML & Assets Tool{% endblock %}</title>
-    <meta name="description" content="Extract XML project definitions, layer hierarchies, and full media packages directly from Alight Motion share links. High performance Firebase Storage bypass.">
+    <meta name="description" content="Extract XML project definitions, layer hierarchies, and full media packages directly from Alight Motion share links or QR codes. High performance Firebase Storage bypass.">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,6 +36,7 @@
 
             <div class="nav-links">
                 <a href="/" class="nav-item {% if active_page == 'home' %}active{% endif %}">🏠 Extractor</a>
+                <a href="/qr" class="nav-item {% if active_page == 'qr' %}active{% endif %}">📷 QR to XML</a>
                 <a href="/batch" class="nav-item {% if active_page == 'batch' %}active{% endif %}">📑 Batch</a>
                 <a href="https://github.com/Hibandd122/am-share-extractor" target="_blank" rel="noopener noreferrer" class="nav-github-btn">
                     <span>GitHub</span>
@@ -61,13 +62,16 @@
             </div>
             <div class="footer-links">
                 <a href="/" class="footer-link">Home</a>
+                <a href="/qr" class="footer-link">QR Scanner</a>
                 <a href="/batch" class="footer-link">Batch Tool</a>
                 <a href="https://github.com/Hibandd122/am-share-extractor" target="_blank" class="footer-link">Source Code</a>
             </div>
         </div>
     </footer>
 
-    <!-- Scripts -->
+    <!-- QR & Main Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="/static/js/qr-scanner.js"></script>
     <script src="/static/js/app.js"></script>
     {% block extra_js %}{% endblock %}
 </body>

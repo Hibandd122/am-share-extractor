@@ -839,3 +839,75 @@ body {
     .mode-selector { grid-template-columns: 1fr; }
     .footer-content { flex-direction: column; gap: 12px; text-align: center; }
 }
+
+/* ==========================================================================
+   QR CODE SCANNER STYLES
+   ========================================================================== */
+
+.qr-dropzone {
+    border: 2px dashed rgba(59, 130, 246, 0.4);
+    border-radius: var(--radius-lg);
+    background: rgba(59, 130, 246, 0.03);
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.qr-dropzone:hover, .qr-dropzone.dragover {
+    border-color: var(--primary);
+    background: rgba(59, 130, 246, 0.08);
+    box-shadow: 0 0 25px var(--primary-glow);
+}
+
+.dropzone-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+}
+
+.camera-viewfinder {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    height: 320px;
+    margin: 0 auto;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: #000;
+    border: 2px solid var(--glass-border);
+}
+
+.camera-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.laser-scanner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #38bdf8, #818cf8, transparent);
+    box-shadow: 0 0 15px #38bdf8;
+    animation: scanLaser 2s infinite ease-in-out alternate;
+}
+
+@keyframes scanLaser {
+    0% { top: 10%; opacity: 0.8; }
+    100% { top: 90%; opacity: 0.8; }
+}
+
+.viewfinder-frame {
+    position: absolute;
+    top: 15%;
+    left: 15%;
+    right: 15%;
+    bottom: 15%;
+    border: 2px solid rgba(56, 189, 248, 0.5);
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+}
+

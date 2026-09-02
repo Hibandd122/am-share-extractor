@@ -3,10 +3,23 @@ import sys
 import urllib.parse
 from flask import Flask, request, Response, render_template, jsonify
 
-# Add workspace root to Python path so `core` can be imported anywhere
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
+# Resolve workspace and module paths robustly for local and Vercel Serverless
+CURR_FILE = os.path.abspath(__file__)
+API_DIR = os.path.dirname(CURR_FILE)
+ROOT_DIR = os.path.dirname(API_DIR)
+
+CANDIDATE_PATHS = [
+    ROOT_DIR,
+    API_DIR,
+    os.getcwd(),
+    "/var/task",
+    "/var/task/api",
+]
+
+# Ensure Python sys.path includes candidate roots so `core` is always importable
+for p in CANDIDATE_PATHS:
+    if p not in sys.path and os.path.isdir(p):
+        sys.path.insert(0, p)
 
 from core.extractor import (
     fetch_package,
@@ -29,9 +42,20 @@ from core.renderer import (
     render_tree_html,
 )
 
-# Initialize Flask application with explicit templates & static paths
-TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
+# Detect template & static directories dynamically
+TEMPLATE_DIR = None
+STATIC_DIR = None
+
+for p in CANDIDATE_PATHS:
+    t_path = os.path.join(p, "templates")
+    s_path = os.path.join(p, "static")
+    if os.path.isdir(t_path) and TEMPLATE_DIR is None:
+        TEMPLATE_DIR = t_path
+    if os.path.isdir(s_path) and STATIC_DIR is None:
+        STATIC_DIR = s_path
+
+TEMPLATE_DIR = TEMPLATE_DIR or os.path.join(ROOT_DIR, "templates")
+STATIC_DIR = STATIC_DIR or os.path.join(ROOT_DIR, "static")
 
 app = Flask(
     __name__,
@@ -45,6 +69,12 @@ app = Flask(
 def home():
     """Renders the main modern extractor landing page."""
     return render_template("index.html", active_page="home")
+
+
+@app.route("/qr", methods=["GET"])
+def qr_page():
+    """Renders the QR Code to XML scanner page."""
+    return render_template("qr.html", active_page="qr")
 
 
 @app.route("/batch", methods=["GET"])
@@ -170,7 +200,7 @@ def api_info():
         svg_preview = render_svg(scene_el)
 
         return jsonify({
-            "success": true_or_bool(True),
+            "success": True,
             "user_id": user_id,
             "package_id": package_id,
             "metadata": metadata,
@@ -259,12 +289,7 @@ def api_batch():
     return jsonify({"success": True, "results": results, "total": len(results)})
 
 
-def true_or_bool(val):
-    return bool(val)
-
-
 if __name__ == "__main__":
-    # Local development server
     port = int(os.environ.get("PORT", 5000))
     print(f"[*] Starting Nexus Alight Extractor server on http://127.0.0.1:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
