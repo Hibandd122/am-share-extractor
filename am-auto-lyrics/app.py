@@ -143,72 +143,79 @@ def api_whisper_align():
         res = model.transcribe(tmp_path, language="vi", word_timestamps=True)
         segments = res.get("segments", [])
 
-        # Extract vocal lines from segments & words
-        bookmarks = []
         user_lines = [l.strip() for l in raw_lyrics_text.splitlines() if l.strip()]
 
-        phrase_list = []
+        # Collect all recognized words with start and end timestamps
+        all_words = []
         for seg in segments:
-            words = seg.get("words", [])
-            if not words:
+            for w in seg.get("words", []):
+                all_words.append({
+                    "word": w["word"].strip(),
+                    "clean": "".join(c.lower() for c in w["word"] if c.isalnum()),
+                    "start_ms": int(w["start"] * 1000),
+                    "end_ms": int(w["end"] * 1000)
+                })
+
+        bookmarks = []
+        final_lyrics = []
+
+        if user_lines and all_words:
+            import difflib
+
+            word_ptr = 0
+            total_words = len(all_words)
+
+            for idx, u_line in enumerate(user_lines):
+                u_words = ["".join(c.lower() for c in w if c.isalnum()) for w in u_line.split() if w.strip()]
+                if not u_words:
+                    continue
+
+                best_score = -1
+                best_range = (word_ptr, min(total_words, word_ptr + len(u_words)))
+
+                # Search window around word_ptr
+                search_end = min(total_words, word_ptr + len(u_words) * 3 + 6)
+                for s in range(word_ptr, min(search_end, total_words)):
+                    for e in range(s + 1, min(s + len(u_words) + 8, total_words + 1)):
+                        sub = " ".join(all_words[i]["clean"] for i in range(s, e))
+                        ref = " ".join(u_words)
+                        ratio = difflib.SequenceMatcher(None, sub, ref).ratio()
+                        if ratio > best_score:
+                            best_score = ratio
+                            best_range = (s, e)
+
+                s_idx, e_idx = best_range
+                if e_idx > s_idx and s_idx < total_words:
+                    start_ms = all_words[s_idx]["start_ms"]
+                    end_ms = all_words[min(e_idx - 1, total_words - 1)]["end_ms"]
+                    word_ptr = e_idx
+                else:
+                    prev_end = final_lyrics[-1]["end_ms"] if final_lyrics else 1000
+                    start_ms = prev_end + 300
+                    end_ms = prev_end + 2500
+
+                # Ensure minimum line duration of 1.2s for clean readability
+                if end_ms - start_ms < 1200:
+                    end_ms = start_ms + 1500
+
+                final_lyrics.append({
+                    "id": idx + 1,
+                    "text": u_line,
+                    "start_ms": start_ms,
+                    "end_ms": end_ms
+                })
+                bookmarks.append(start_ms)
+        elif segments:
+            for idx, seg in enumerate(segments):
                 s_ms = int(seg["start"] * 1000)
                 e_ms = int(seg["end"] * 1000)
-                phrase_list.append({"text": seg["text"].strip(), "start_ms": s_ms, "end_ms": e_ms})
+                final_lyrics.append({
+                    "id": idx + 1,
+                    "text": seg["text"].strip(),
+                    "start_ms": s_ms,
+                    "end_ms": e_ms
+                })
                 bookmarks.append(s_ms)
-                continue
-
-            # Group words by pause >= 380ms or punctuation
-            cur_words = []
-            cur_start = int(words[0]["start"] * 1000)
-            for i, w in enumerate(words):
-                cur_words.append(w["word"])
-                w_end = int(w["end"] * 1000)
-                
-                has_comma_or_period = any(p in w["word"] for p in (',', '.', ';', '?', '!'))
-                next_pause = False
-                if i < len(words) - 1:
-                    next_start = int(words[i + 1]["start"] * 1000)
-                    if next_start - w_end >= 380:
-                        next_pause = True
-
-                if (has_comma_or_period and len(cur_words) >= 4) or next_pause or i == len(words) - 1:
-                    phrase_text = "".join(cur_words).strip()
-                    if phrase_text:
-                        phrase_list.append({
-                            "text": phrase_text,
-                            "start_ms": cur_start,
-                            "end_ms": w_end
-                        })
-                        bookmarks.append(cur_start)
-                    cur_words = []
-                    if i < len(words) - 1:
-                        cur_start = int(words[i + 1]["start"] * 1000)
-
-        # If user provided clean lyrics text, map clean text to detected timestamps
-        final_lyrics = []
-        if user_lines and phrase_list:
-            for idx, u_text in enumerate(user_lines):
-                if idx < len(phrase_list):
-                    ts = phrase_list[idx]
-                    final_lyrics.append({
-                        "id": idx + 1,
-                        "text": u_text,
-                        "start_ms": ts["start_ms"],
-                        "end_ms": ts["end_ms"]
-                    })
-                else:
-                    last_end = final_lyrics[-1]["end_ms"] if final_lyrics else 1000
-                    final_lyrics.append({
-                        "id": idx + 1,
-                        "text": u_text,
-                        "start_ms": last_end + 300,
-                        "end_ms": last_end + 2500
-                    })
-        else:
-            final_lyrics = [
-                {"id": i + 1, "text": p["text"], "start_ms": p["start_ms"], "end_ms": p["end_ms"]}
-                for i, p in enumerate(phrase_list)
-            ]
 
         return jsonify({
             "success": True,
