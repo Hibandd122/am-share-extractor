@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initLyricsEditor();
     initPlaybackControls();
     initWaveformInteractions();
+    initBeatSliders();
     initExportActions();
 });
 
@@ -410,6 +411,37 @@ function initExportActions() {
             exportBtn.textContent = "⬇️ Export Alight Motion XML";
         }
     });
+}
+
+function initBeatSliders() {
+    const offsetSlider = document.getElementById("beatOffsetSlider");
+    const offsetDisplay = document.getElementById("offsetValueDisplay");
+    const sensSlider = document.getElementById("beatSensSlider");
+    const sensDisplay = document.getElementById("sensValueDisplay");
+
+    if (offsetSlider && offsetDisplay) {
+        offsetSlider.addEventListener("input", () => {
+            const val = parseInt(offsetSlider.value, 10);
+            offsetDisplay.textContent = `${val}ms`;
+            if (audioEngine.audioBuffer) {
+                audioEngine.detectBeats(parseFloat(sensSlider.value), val);
+                autoAlignLyrics();
+                drawWaveform();
+            }
+        });
+    }
+
+    if (sensSlider && sensDisplay) {
+        sensSlider.addEventListener("input", () => {
+            const val = parseFloat(sensSlider.value);
+            sensDisplay.textContent = `${val.toFixed(2)}x`;
+            if (audioEngine.audioBuffer) {
+                audioEngine.detectBeats(val, parseInt(offsetSlider.value, 10));
+                autoAlignLyrics();
+                drawWaveform();
+            }
+        });
+    }
 }
 
 function escapeHtml(str) {
