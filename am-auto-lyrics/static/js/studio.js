@@ -260,40 +260,66 @@ function updateActiveLyric(curMs) {
     }
 }
 
+let syncLyricIndex = 0;
+
 function renderLyricList() {
     const container = document.getElementById("lyricItemsContainer");
     if (!container) return;
 
     container.innerHTML = "";
     if (currentLyrics.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">No lyrics loaded yet.</div>';
+        container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">No lyrics loaded yet. Paste lyrics or click "Sample" to start.</div>';
         return;
     }
 
     currentLyrics.forEach((item, idx) => {
         const row = document.createElement("div");
-        row.className = "lyric-item-row" + (idx === activeLyricIndex ? " active" : "");
+        row.className = "lyric-item-row" + (idx === activeLyricIndex ? " active" : "") + (idx === syncLyricIndex && audioEngine.isPlaying ? " next-sync-target" : "");
         row.id = `lyric-row-${idx}`;
 
         const startSec = (item.start_ms / 1000).toFixed(2);
         const endSec = (item.end_ms / 1000).toFixed(2);
 
         row.innerHTML = `
-            <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                <strong>${idx + 1}.</strong> ${escapeHtml(item.text)}
+            <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(item.text)}">
+                <strong style="color:var(--primary);">${idx + 1}.</strong> ${escapeHtml(item.text)}
             </div>
-            <div class="lyric-timing">
-                <span>${startSec}s - ${endSec}s</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <button type="button" class="btn-ctrl nudge-btn" data-idx="${idx}" data-delta="-100" style="padding:2px 6px; font-size:10px;" title="Lùi 100ms">-0.1s</button>
+                <div class="lyric-timing" style="min-width:90px; text-align:center;">
+                    <span>${startSec}s - ${endSec}s</span>
+                </div>
+                <button type="button" class="btn-ctrl nudge-btn" data-idx="${idx}" data-delta="100" style="padding:2px 6px; font-size:10px;" title="Tiến 100ms">+0.1s</button>
+                <button type="button" class="btn-ctrl play-line-btn" data-start="${item.start_ms}" style="padding:2px 6px; font-size:10px;" title="Nghe câu này">▶</button>
             </div>
         `;
 
-        row.addEventListener("click", () => {
-            if (audioEngine.audioBuffer) {
-                audioEngine.seek(item.start_ms / 1000);
+        container.appendChild(row);
+    });
+
+    // Attach nudge & play listeners
+    container.querySelectorAll(".nudge-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.getAttribute("data-idx"), 10);
+            const delta = parseInt(btn.getAttribute("data-delta"), 10);
+            if (currentLyrics[idx]) {
+                currentLyrics[idx].start_ms = Math.max(0, currentLyrics[idx].start_ms + delta);
+                currentLyrics[idx].end_ms = Math.max(currentLyrics[idx].start_ms + 500, currentLyrics[idx].end_ms + delta);
+                renderLyricList();
+                drawWaveform();
             }
         });
+    });
 
-        container.appendChild(row);
+    container.querySelectorAll(".play-line-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const startMs = parseInt(btn.getAttribute("data-start"), 10);
+            if (audioEngine.audioBuffer) {
+                audioEngine.seek(startMs / 1000);
+            }
+        });
     });
 }
 
@@ -320,11 +346,13 @@ function initPlaybackControls() {
         stopBtn.addEventListener("click", () => {
             audioEngine.pause();
             audioEngine.seek(0);
+            syncLyricIndex = 0;
             if (playBtn) playBtn.innerHTML = "▶ Play";
+            renderLyricList();
         });
     }
 
-    // Spacebar Listener for Tap-to-Beat
+    // Spacebar Listener for Tap-to-Sync Sequential Lyrics
     window.addEventListener("keydown", (e) => {
         if (e.code === "Space" && e.target.tagName !== "TEXTAREA" && e.target.tagName !== "INPUT") {
             e.preventDefault();
@@ -341,7 +369,25 @@ function initPlaybackControls() {
             audioEngine.play();
             if (playBtn) playBtn.innerHTML = "⏸ Pause";
         }
-        const ms = audioEngine.tapBeat();
+
+        const curMs = Math.round(audioEngine.getCurrentTime() * 1000);
+
+        // Sequential Live Tap Syncing per lyric line
+        if (currentLyrics.length > 0 && syncLyricIndex < currentLyrics.length) {
+            currentLyrics[syncLyricIndex].start_ms = curMs;
+            
+            // Set end time of previous line
+            if (syncLyricIndex > 0) {
+                currentLyrics[syncLyricIndex - 1].end_ms = Math.max(currentLyrics[syncLyricIndex - 1].start_ms + 800, curMs - 1);
+            }
+            // Set temporary end time for current line
+            currentLyrics[syncLyricIndex].end_ms = curMs + 3000;
+
+            syncLyricIndex++;
+            renderLyricList();
+        }
+
+        audioEngine.tappedBeats.push(curMs);
         drawWaveform();
     }
 
@@ -366,6 +412,7 @@ function initPlaybackControls() {
 
     audioEngine.onPlaybackEnded = () => {
         if (playBtn) playBtn.innerHTML = "▶ Play";
+        syncLyricIndex = 0;
     };
 }
 

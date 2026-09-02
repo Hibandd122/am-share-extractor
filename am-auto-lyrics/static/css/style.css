@@ -247,6 +247,9 @@ body {
 @media (max-width: 860px) {
     .stage-and-preview-row {
         grid-template-columns: 1fr;
+    }
+}
+
 .canvas-container {
     background: radial-gradient(circle at center, #111827 0%, #030712 100%);
     border: 1px solid rgba(56, 189, 248, 0.2);
@@ -430,8 +433,48 @@ body {
 }
 
 .lyric-item-row:hover, .lyric-item-row.active {
-    background: rgba(56, 189, 248, 0.08);
+    background: rgba(56, 189, 248, 0.12);
     border-color: var(--primary);
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+}
+
+.lyric-item-row.next-sync-target {
+    border-left-color: #f43f5e;
+    background: rgba(244, 63, 94, 0.1);
+    box-shadow: 0 0 15px rgba(244, 63, 94, 0.25);
+    animation: pulseTarget 1s infinite alternate;
+}
+
+@keyframes pulseTarget {
+    0% { border-color: rgba(244, 63, 94, 0.4); }
+    100% { border-color: #f43f5e; }
+}
+
+.nudge-btn {
+    padding: 3px 8px !important;
+    font-size: 10px !important;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+}
+
+.nudge-btn:hover {
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+    border-color: #38bdf8;
+}
+
+.play-line-btn {
+    padding: 3px 8px !important;
+    font-size: 10px !important;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+}
+
+.play-line-btn:hover {
+    background: #10b981;
+    color: #000;
 }
 
 .lyric-timing {
