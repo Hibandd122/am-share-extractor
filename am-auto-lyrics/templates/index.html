@@ -166,6 +166,18 @@
 
             <!-- Timeline, Waveform & Playback Controls -->
             <div class="timeline-card">
+                <!-- Global Timing Shift Toolbar -->
+                <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 12px; background: rgba(0,0,0,0.4); border-radius: var(--radius-sm); border: 1px solid var(--glass-border);">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+                        <span style="color: var(--primary); font-weight: 700;">⏱️ Tinh Chỉnh Tốc Độ Toàn Bài:</span>
+                        <button type="button" class="btn-ctrl shift-all-btn" data-delta="-200" style="padding: 3px 8px; font-size: 11px;" title="Chữ xuất hiện sớm hơn 200ms">⏪ Nhanh (-0.2s)</button>
+                        <button type="button" class="btn-ctrl shift-all-btn" data-delta="-100" style="padding: 3px 8px; font-size: 11px;" title="Chữ xuất hiện sớm hơn 100ms">-0.1s</button>
+                        <button type="button" class="btn-ctrl shift-all-btn" data-delta="100" style="padding: 3px 8px; font-size: 11px;" title="Chữ xuất hiện trễ hơn 100ms">+0.1s</button>
+                        <button type="button" class="btn-ctrl shift-all-btn" data-delta="200" style="padding: 3px 8px; font-size: 11px;" title="Chữ xuất hiện trễ hơn 200ms">Chậm (+0.2s) ⏩</button>
+                    </div>
+                    <div id="shiftOffsetBadge" style="font-size: 11px; color: var(--text-muted); font-family: monospace;">Độ bù: 0ms</div>
+                </div>
+
                 <div class="timeline-controls-bar">
                     <div class="playback-btns">
                         <button type="button" id="playPauseBtn" class="btn-ctrl primary">

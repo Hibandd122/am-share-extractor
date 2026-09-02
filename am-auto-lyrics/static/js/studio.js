@@ -145,6 +145,7 @@ function initLyricsEditor() {
             const formData = new FormData();
             formData.append("audio", uploadedAudioFile);
             formData.append("lyrics_text", rawText);
+            formData.append("offset_ms", "-250");
 
             try {
                 const res = await fetch("/api/whisper-align", {
@@ -289,7 +290,9 @@ function evalCubicBezier(x1, y1, x2, y2, t) {
 function updateActiveLyric(curMs) {
     let foundIdx = -1;
     for (let i = 0; i < currentLyrics.length; i++) {
-        if (curMs >= currentLyrics[i].start_ms && curMs <= currentLyrics[i].end_ms) {
+        const item = currentLyrics[i];
+        const nextStart = (i < currentLyrics.length - 1) ? currentLyrics[i + 1].start_ms : item.end_ms + 1200;
+        if (curMs >= item.start_ms && curMs < nextStart) {
             foundIdx = i;
             break;
         }
@@ -307,14 +310,14 @@ function updateActiveLyric(curMs) {
 
     if (foundIdx !== -1) {
         const item = currentLyrics[foundIdx];
-        const duration = Math.max(1, item.end_ms - item.start_ms);
-        const rawProgress = Math.max(0, Math.min(1, (curMs - item.start_ms) / duration));
+        const singingDuration = Math.max(600, item.end_ms - item.start_ms);
+        const rawProgress = Math.max(0, Math.min(1, (curMs - item.start_ms) / singingDuration));
 
         const preset = presetSelect ? presetSelect.value : "typewriter";
 
         if (preset === "typewriter") {
-            // Eased typewriter progressive character reveal
-            const easedProgress = evalCubicBezier(0.0, 0.0, 0.56, 1.0, rawProgress);
+            // Snappy progressive character reveal right from millisecond 0
+            const easedProgress = evalCubicBezier(0.20, 0.25, 0.65, 1.0, rawProgress);
             const totalChars = item.text.length;
             const revealCount = Math.min(totalChars, Math.max(0, Math.floor(easedProgress * totalChars)));
 
@@ -462,6 +465,28 @@ function initPlaybackControls() {
             renderLyricList();
         });
     }
+
+    // Global Timing Shift Controllers (Nhanh/Chậm toàn bài)
+    let cumulativeShiftOffset = 0;
+    const shiftBadge = document.getElementById("shiftOffsetBadge");
+
+    document.querySelectorAll(".shift-all-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            if (currentLyrics.length === 0) return;
+            const delta = parseInt(btn.getAttribute("data-delta"), 10);
+            cumulativeShiftOffset += delta;
+            if (shiftBadge) {
+                shiftBadge.textContent = `Độ bù: ${cumulativeShiftOffset > 0 ? '+' : ''}${cumulativeShiftOffset}ms`;
+                shiftBadge.style.color = cumulativeShiftOffset !== 0 ? "#38bdf8" : "var(--text-muted)";
+            }
+            currentLyrics.forEach(item => {
+                item.start_ms = Math.max(0, item.start_ms + delta);
+                item.end_ms = Math.max(item.start_ms + 800, item.end_ms + delta);
+            });
+            renderLyricList();
+            drawWaveform();
+        });
+    });
 
     // Spacebar Listener for Tap-to-Sync Sequential Lyrics
     window.addEventListener("keydown", (e) => {

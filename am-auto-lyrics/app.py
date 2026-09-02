@@ -143,7 +143,7 @@ def api_whisper_align():
         res = model.transcribe(tmp_path, language="vi", word_timestamps=True)
         segments = res.get("segments", [])
 
-        user_lines = [l.strip() for l in raw_lyrics_text.splitlines() if l.strip()]
+        offset_ms = int(request.form.get("offset_ms", -250))
 
         # Collect all recognized words with start and end timestamps
         all_words = []
@@ -186,17 +186,20 @@ def api_whisper_align():
 
                 s_idx, e_idx = best_range
                 if e_idx > s_idx and s_idx < total_words:
-                    start_ms = all_words[s_idx]["start_ms"]
-                    end_ms = all_words[min(e_idx - 1, total_words - 1)]["end_ms"]
+                    raw_start = all_words[s_idx]["start_ms"]
+                    raw_end = all_words[min(e_idx - 1, total_words - 1)]["end_ms"]
+                    # Apply pre-roll offset so initial consonant / breath starts right on time
+                    start_ms = max(0, raw_start + offset_ms)
+                    end_ms = raw_end + 100
                     word_ptr = e_idx
                 else:
                     prev_end = final_lyrics[-1]["end_ms"] if final_lyrics else 1000
                     start_ms = prev_end + 300
                     end_ms = prev_end + 2500
 
-                # Ensure minimum line duration of 1.2s for clean readability
-                if end_ms - start_ms < 1200:
-                    end_ms = start_ms + 1500
+                # Ensure minimum line duration of 1.4s for clean readability
+                if end_ms - start_ms < 1400:
+                    end_ms = start_ms + 1600
 
                 final_lyrics.append({
                     "id": idx + 1,
