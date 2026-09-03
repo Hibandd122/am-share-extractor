@@ -59,16 +59,16 @@
     <!-- Panel 2: Live Camera Viewfinder -->
     <div id="cameraPanel" style="display: none;">
         <div class="camera-viewfinder">
-            <video id="qrCameraVideo" class="camera-video"></video>
+            <video id="qrCameraVideo" class="camera-video" playsinline webkit-playsinline autoplay muted></video>
             <div class="laser-scanner"></div>
             <div class="viewfinder-frame"></div>
         </div>
         <div style="display: flex; justify-content: center; gap: 12px; margin-top: 16px;">
-            <button type="button" id="startCamBtn" class="btn-primary" style="flex: unset; padding: 10px 20px;">
-                ▶ Start Camera
+            <button type="button" id="startCamBtn" class="btn-primary" style="flex: unset; padding: 12px 24px;">
+                ▶ Bật Camera
             </button>
-            <button type="button" id="stopCamBtn" class="btn-secondary" style="flex: unset; padding: 10px 20px; display: none;">
-                ⏹ Stop Camera
+            <button type="button" id="stopCamBtn" class="btn-secondary" style="flex: unset; padding: 12px 24px; display: none;">
+                ⏹ Tắt Camera
             </button>
         </div>
     </div>

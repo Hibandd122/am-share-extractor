@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="theme-color" content="#09090e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>{% block title %}Nexus Alight Extractor · Professional AM XML & Assets Tool{% endblock %}</title>
     <meta name="description" content="Extract XML project definitions, layer hierarchies, and full media packages directly from Alight Motion share links or QR codes. High performance Firebase Storage bypass.">
     
@@ -28,19 +31,27 @@
         <nav class="navbar">
             <a href="/" class="brand-logo">
                 <div class="brand-icon">⚡</div>
-                <div>
+                <div class="brand-title-wrap">
                     <span class="brand-text">NEXUS EXTRACTOR</span>
                 </div>
                 <span class="brand-badge">PRO V2.0</span>
             </a>
 
-            <div class="nav-links">
+            <!-- Desktop Navigation Links -->
+            <div class="nav-links desktop-nav">
                 <a href="/" class="nav-item {% if active_page == 'home' %}active{% endif %}">🏠 Extractor</a>
                 <a href="/qr" class="nav-item {% if active_page == 'qr' %}active{% endif %}">📷 QR to XML</a>
                 <a href="/batch" class="nav-item {% if active_page == 'batch' %}active{% endif %}">📑 Batch</a>
                 <a href="https://github.com/Hibandd122/am-share-extractor" target="_blank" rel="noopener noreferrer" class="nav-github-btn">
                     <span>GitHub</span>
                     <span>↗</span>
+                </a>
+            </div>
+
+            <!-- Mobile Header Actions (Right) -->
+            <div class="mobile-header-actions">
+                <a href="/qr" class="mobile-icon-btn {% if active_page == 'qr' %}active{% endif %}" title="Scan QR Code">
+                    <span>📷</span>
                 </a>
             </div>
         </nav>
@@ -51,20 +62,42 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Toast Notification Container -->
+    <!-- Native-like Mobile Bottom Navigation Dock (< 768px) -->
+    <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+        <div class="mobile-nav-inner">
+            <a href="/" class="mobile-nav-tab {% if active_page == 'home' %}active{% endif %}">
+                <span class="tab-icon">⚡</span>
+                <span class="tab-label">Trích Xuất</span>
+            </a>
+            <a href="/qr" class="mobile-nav-tab {% if active_page == 'qr' %}active{% endif %}">
+                <span class="tab-icon">📷</span>
+                <span class="tab-label">Quét QR</span>
+            </a>
+            <a href="/batch" class="mobile-nav-tab {% if active_page == 'batch' %}active{% endif %}">
+                <span class="tab-icon">📑</span>
+                <span class="tab-label">Xử Lý Batch</span>
+            </a>
+            <a href="https://github.com/Hibandd122/am-share-extractor" target="_blank" rel="noopener noreferrer" class="mobile-nav-tab">
+                <span class="tab-icon">⭐</span>
+                <span class="tab-label">GitHub</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Toast Notification Container (Mobile Dynamic Island support) -->
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Site Footer -->
     <footer class="site-footer">
         <div class="footer-content">
             <div>
-                © 2026 <strong>Nexus Alight Extractor</strong> · High-Performance AM Project Pipeline
+                © 2026 <strong>Nexus Alight Extractor</strong> · High-Performance AM Pipeline
             </div>
             <div class="footer-links">
                 <a href="/" class="footer-link">Home</a>
                 <a href="/qr" class="footer-link">QR Scanner</a>
                 <a href="/batch" class="footer-link">Batch Tool</a>
-                <a href="https://github.com/Hibandd122/am-share-extractor" target="_blank" class="footer-link">Source Code</a>
+                <a href="https://github.com/Hibandd122/am-share-extractor" target="_blank" class="footer-link">Source</a>
             </div>
         </div>
     </footer>

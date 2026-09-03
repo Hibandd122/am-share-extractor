@@ -35,13 +35,35 @@ class NexusQRScanner {
 
                 if (code && code.data) {
                     resolve(code.data);
-                } else {
-                    reject(new Error("No readable QR code found in this image."));
+                    return;
                 }
+
+                // Fallback to server-side high-precision OpenCV detector (handles colored / teal / low-contrast QRs)
+                this._decodeViaServer(this.canvas.toDataURL("image/png"))
+                    .then(url => resolve(url))
+                    .catch(() => reject(new Error("No readable QR code found in this image.")));
             } catch (err) {
-                reject(err);
+                this._decodeViaServer(this.canvas.toDataURL("image/png"))
+                    .then(url => resolve(url))
+                    .catch(() => reject(err));
             }
         });
+    }
+
+    async _decodeViaServer(dataUrl) {
+        try {
+            const res = await fetch("/api/decode-qr", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image_base64: dataUrl })
+            });
+            if (!res.ok) throw new Error("Server decode failed");
+            const data = await res.json();
+            if (data.success && data.url) return data.url;
+            throw new Error(data.error || "No QR detected");
+        } catch (e) {
+            throw e;
+        }
     }
 
     /**

@@ -28,11 +28,14 @@
                     id="urlInput" 
                     name="url" 
                     class="main-input"
-                    placeholder="https://alightcreative.com/am/share/u/.../p/... (or paste QR image)" 
+                    placeholder="Dán link Alight Motion hoặc ảnh QR..." 
                     autocomplete="off" 
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
                     required 
                 />
-                <div class="input-actions">
+                <div class="input-actions desktop-only-actions">
                     <a href="/qr" class="input-btn-icon" title="Scan or Upload QR Code" style="text-decoration: none;">
                         📷 Scan QR
                     </a>
@@ -44,52 +47,70 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Mobile Quick Actions Bar (< 640px) -->
+            <div class="mobile-quick-actions">
+                <button type="button" id="mobilePasteBtn" class="mobile-action-pill" title="Dán link từ bộ nhớ tạm">
+                    <span>📋</span>
+                    <span>Dán Nhanh</span>
+                </button>
+                <a href="/qr" class="mobile-action-pill" title="Quét mã QR">
+                    <span>📷</span>
+                    <span>Quét QR</span>
+                </a>
+                <button type="button" id="mobileClearBtn" class="mobile-action-pill" title="Xóa ô nhập">
+                    <span>✕</span>
+                    <span>Xóa</span>
+                </button>
+            </div>
         </div>
 
         <!-- Extraction Mode Selector -->
         <div class="mode-selector">
             <label class="mode-card selected">
                 <input type="radio" name="mode" value="full" checked />
-                <div>
-                    <span class="mode-title">Full Package (.zip)</span>
-                    <span class="mode-desc">XML + All raw media files</span>
+                <div class="mode-text-wrap">
+                    <span class="mode-title">📦 Full Package (.zip)</span>
+                    <span class="mode-desc">XML + Toàn bộ Media gốc</span>
                 </div>
             </label>
 
             <label class="mode-card">
                 <input type="radio" name="mode" value="xml" />
-                <div>
-                    <span class="mode-title">XML Scene Only</span>
-                    <span class="mode-desc">Standard .xml for AM import</span>
+                <div class="mode-text-wrap">
+                    <span class="mode-title">📄 XML Scene Only</span>
+                    <span class="mode-desc">Tệp .xml nhập Alight Motion</span>
                 </div>
             </label>
 
             <label class="mode-card">
                 <input type="radio" name="mode" value="beautify" />
-                <div>
-                    <span class="mode-title">Beautified XML</span>
-                    <span class="mode-desc">Cleanly formatted & indented</span>
+                <div class="mode-text-wrap">
+                    <span class="mode-title">✨ Beautified XML</span>
+                    <span class="mode-desc">Định dạng thụt lề chuẩn</span>
                 </div>
             </label>
         </div>
 
         <!-- Action Button Row -->
         <div class="button-group">
-            <button type="submit" id="submitBtn" class="btn-primary">
+            <button type="submit" id="submitBtn" class="btn-primary main-action-btn">
                 <span class="btn-icon">⚡</span>
                 <span class="btn-text">Download Payload</span>
                 <div class="btn-spinner"></div>
             </button>
 
-            <button type="button" id="previewBtn" class="btn-secondary" title="Open Interactive Studio">
-                <span>🎨</span>
-                <span>Studio Preview</span>
-            </button>
+            <div class="secondary-btn-row">
+                <button type="button" id="previewBtn" class="btn-secondary" title="Open Interactive Studio">
+                    <span>🎨</span>
+                    <span>Studio Preview</span>
+                </button>
 
-            <button type="button" id="inspectBtn" class="btn-secondary" title="Quick Inspect Metadata">
-                <span>🔍</span>
-                <span>Quick Inspect</span>
-            </button>
+                <button type="button" id="inspectBtn" class="btn-secondary" title="Quick Inspect Metadata">
+                    <span>🔍</span>
+                    <span>Quick Inspect</span>
+                </button>
+            </div>
         </div>
     </form>
 

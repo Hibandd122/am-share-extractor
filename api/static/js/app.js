@@ -44,34 +44,70 @@ function showToast(message, type = "info", duration = 3500) {
 function initUrlControls() {
     const input = document.getElementById("urlInput");
     const pasteBtn = document.getElementById("pasteBtn");
+    const mobilePasteBtn = document.getElementById("mobilePasteBtn");
     const clearBtn = document.getElementById("clearBtn");
+    const mobileClearBtn = document.getElementById("mobileClearBtn");
     const form = document.getElementById("extractForm");
     const submitBtn = document.getElementById("submitBtn");
     const previewBtn = document.getElementById("previewBtn");
 
-    if (pasteBtn && input) {
-        pasteBtn.addEventListener("click", async () => {
-            try {
-                const text = await navigator.clipboard.readText();
-                if (text && text.trim()) {
-                    input.value = text.trim();
-                    showToast("Pasted share link from clipboard!", "success");
-                    validateUrl(input.value);
+    async function handleClipboardPaste() {
+        if (!input) return;
+        try {
+            // First check if clipboard items contain an image (e.g. copied QR code)
+            if (navigator.clipboard && navigator.clipboard.read) {
+                try {
+                    const items = await navigator.clipboard.read();
+                    for (const item of items) {
+                        const imageType = item.types.find(t => t.startsWith("image/"));
+                        if (imageType) {
+                            const blob = await item.getType(imageType);
+                            showToast("Đang giải mã ảnh QR từ bộ nhớ tạm...", "info");
+                            const scanner = new NexusQRScanner();
+                            try {
+                                const res = await scanner.decodeFromFile(blob);
+                                const decodedUrl = (typeof res === "string") ? res : res.text;
+                                input.value = decodedUrl;
+                                showToast("Đã quét mã QR thành công!", "success");
+                                validateUrl(decodedUrl);
+                                return;
+                            } catch (scanErr) {
+                                // Fallback to text check below
+                            }
+                        }
+                    }
+                } catch (clipItemErr) {
+                    // Clipboard items read permission not supported or denied, fallback to text
                 }
-            } catch (err) {
-                showToast("Please allow clipboard permissions or paste manually.", "error");
             }
-        });
+
+            // Normal text paste
+            const text = await navigator.clipboard.readText();
+            if (text && text.trim()) {
+                input.value = text.trim();
+                showToast("Đã dán liên kết Alight Motion!", "success");
+                validateUrl(input.value);
+            } else {
+                showToast("Bộ nhớ tạm trống hoặc không có liên kết.", "info");
+            }
+        } catch (err) {
+            showToast("Vui lòng cấp quyền truy cập bộ nhớ tạm hoặc dán thủ công.", "error");
+        }
     }
 
-    if (clearBtn && input) {
-        clearBtn.addEventListener("click", () => {
-            input.value = "";
-            input.focus();
-            const drawer = document.getElementById("inspectDrawer");
-            if (drawer) drawer.style.display = "none";
-        });
+    if (pasteBtn) pasteBtn.addEventListener("click", handleClipboardPaste);
+    if (mobilePasteBtn) mobilePasteBtn.addEventListener("click", handleClipboardPaste);
+
+    function handleClear() {
+        if (!input) return;
+        input.value = "";
+        input.focus();
+        const drawer = document.getElementById("inspectDrawer");
+        if (drawer) drawer.style.display = "none";
     }
+
+    if (clearBtn) clearBtn.addEventListener("click", handleClear);
+    if (mobileClearBtn) mobileClearBtn.addEventListener("click", handleClear);
 
     if (previewBtn && input) {
         previewBtn.addEventListener("click", () => {

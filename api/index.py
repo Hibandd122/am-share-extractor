@@ -329,6 +329,65 @@ def api_batch():
     return jsonify({"success": True, "results": results, "total": len(results)})
 
 
+@app.route("/api/decode-qr", methods=["POST"])
+def api_decode_qr():
+    """
+    Decodes Alight Motion QR Code from uploaded image file or base64 data.
+    Uses OpenCV QRCodeDetector with multi-pass adaptive contrast enhancement.
+    """
+    import base64
+    import numpy as np
+
+    image_bytes = None
+    if "image" in request.files:
+        image_bytes = request.files["image"].read()
+    else:
+        data = request.get_json(silent=True) or {}
+        b64_str = data.get("image_base64", "")
+        if b64_str:
+            if "," in b64_str:
+                b64_str = b64_str.split(",", 1)[1]
+            try:
+                image_bytes = base64.b64decode(b64_str)
+            except Exception:
+                pass
+
+    if not image_bytes:
+        return jsonify({"success": False, "error": "No image provided."}), 400
+
+    try:
+        import cv2
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return jsonify({"success": False, "error": "Invalid image format."}), 400
+
+        detector = cv2.QRCodeDetector()
+
+        # 1. Direct detection
+        val, _, _ = detector.detectAndDecode(img)
+        if val and val.strip():
+            return jsonify({"success": True, "url": val.strip()})
+
+        # 2. Grayscale & adaptive binary thresholding (handles colored/teal QR codes)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        for thresh_val in (160, 200, 128, 90):
+            _, binary = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
+            val, _, _ = detector.detectAndDecode(binary)
+            if val and val.strip():
+                return jsonify({"success": True, "url": val.strip()})
+
+        # 3. Inverted thresholding
+        _, inv_binary = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY_INV)
+        val, _, _ = detector.detectAndDecode(inv_binary)
+        if val and val.strip():
+            return jsonify({"success": True, "url": val.strip()})
+
+        return jsonify({"success": False, "error": "No readable QR code found in image."}), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"[*] Starting Nexus Alight Extractor server on http://127.0.0.1:{port}")
